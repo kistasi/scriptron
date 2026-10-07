@@ -132,8 +132,12 @@ function markerRanges(text: string, type: LineType): InlineRange[] {
   const match = leading[type]?.exec(text.slice(lead))
   if (match) ranges.push({ from: lead, to: lead + match[0].length, style: 'marker' })
 
-  const trailing = type === 'centered' ? /\s*<\s*$/ : type === 'character' ? /\s*\^\s*$/ : null
-  const end = trailing?.exec(text)
+  const trailing: Partial<Record<LineType, RegExp>> = {
+    centered: /\s*<\s*$/,
+    character: /\s*\^\s*$/,
+    'scene-heading': /\s*#[^#\s][^#]*#\s*$/
+  }
+  const end = trailing[type]?.exec(text)
   if (end) ranges.push({ from: end.index, to: text.length, style: 'marker' })
 
   return ranges
