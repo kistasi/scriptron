@@ -1,3 +1,32 @@
+/* Courier Prime, bundled so the editor and exported PDFs look the same everywhere (OFL, see fonts/OFL.txt). */
+@font-face {
+  font-family: 'Courier Prime';
+  src: url('./fonts/CourierPrime-Regular.ttf') format('truetype');
+  font-weight: normal;
+  font-style: normal;
+}
+
+@font-face {
+  font-family: 'Courier Prime';
+  src: url('./fonts/CourierPrime-Bold.ttf') format('truetype');
+  font-weight: bold;
+  font-style: normal;
+}
+
+@font-face {
+  font-family: 'Courier Prime';
+  src: url('./fonts/CourierPrime-Italic.ttf') format('truetype');
+  font-weight: normal;
+  font-style: italic;
+}
+
+@font-face {
+  font-family: 'Courier Prime';
+  src: url('./fonts/CourierPrime-BoldItalic.ttf') format('truetype');
+  font-weight: bold;
+  font-style: italic;
+}
+
 :root {
   color-scheme: light dark;
   --desk: #eceae6;
@@ -45,4 +74,80 @@ body {
 
 .editor {
   height: 100%;
+}
+
+/* Exported PDFs are printed from .print, which is only shown when printing. */
+@page {
+  size: A4;
+  margin: 0;
+}
+
+@media screen {
+  .print {
+    display: none;
+  }
+}
+
+@media print {
+  html,
+  body,
+  #root {
+    height: auto;
+    background: #fff;
+  }
+
+  .editor {
+    display: none;
+  }
+}
+
+.print {
+  color: #000;
+  background: #fff;
+  font-family: 'Courier Prime', Courier, monospace;
+  font-size: 12pt;
+}
+
+.print-page {
+  position: relative;
+  box-sizing: border-box;
+  overflow: hidden;
+  break-after: page;
+}
+
+.print-row {
+  position: relative;
+  height: var(--row-height);
+  line-height: var(--row-height);
+  white-space: pre;
+}
+
+.print-page-number,
+.print-scene-number {
+  position: absolute;
+}
+
+.print-scene-heading {
+  font-weight: bold;
+  text-transform: uppercase;
+}
+
+.print-character,
+.print-transition {
+  text-transform: uppercase;
+}
+
+.print-transition {
+  text-align: right;
+}
+
+.print-centered {
+  text-align: center;
+}
+
+.print-title-footer {
+  position: absolute;
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-end;
 }

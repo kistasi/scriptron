@@ -92,6 +92,12 @@ describe('rowStarts', () => {
     expect(rowStarts('aaa bbb ccc', 7)).toEqual([0, 8])
   })
 
+  it('breaks after a hyphen between letters', () => {
+    expect(rowStarts('aaa bbb-ccc', 8)).toEqual([0, 8])
+    expect(rowStarts('aaa bbb-ccc', 6)).toEqual([0, 4, 8])
+    expect(rowStarts('aaa bbb-123', 8)).toEqual([0, 4])
+  })
+
   it('breaks words longer than the line', () => {
     expect(rowStarts('abcdefghij', 4)).toEqual([0, 4, 8])
     expect(rowStarts('ab abcdefgh', 4)).toEqual([0, 3, 7])
@@ -99,53 +105,79 @@ describe('rowStarts', () => {
 })
 
 describe('paginate rules', () => {
-  it('has a page of 54 lines', () => {
-    expect(LINES_PER_PAGE).toBe(54)
-    expect(layout([])).toEqual({ breaks: [], remaining: 54 })
+  const none = new Set<number>()
+
+  it('has a page of 59 lines', () => {
+    expect(LINES_PER_PAGE).toBe(59)
+    expect(layout([])).toEqual({ breaks: [], spacedHeadings: none, remaining: 59 })
   })
 
   it('starts a new page when a page is full', () => {
-    expect(layout(repeat(60, () => 'word'))).toEqual({
-      breaks: [{ line: 54, offset: 0, page: 2, remaining: 0, continued: undefined }],
-      remaining: 48
+    expect(layout(repeat(65, () => 'word'))).toEqual({
+      breaks: [{ line: 59, offset: 0, page: 2, remaining: 0, continued: undefined }],
+      spacedHeadings: none,
+      remaining: 53
     })
   })
 
   it('counts wrapped rows of long lines', () => {
-    // 121 characters in a 60 character column take 3 rows: 18 lines fill a page exactly.
-    const long = 'x'.repeat(121)
-    expect(layout(repeat(18, () => long))).toEqual({ breaks: [], remaining: 0 })
-    expect(layout(repeat(19, () => long)).breaks.map((b) => b.line)).toEqual([18])
+    // 61 characters in a 60 character column take 2 rows: a word and 29 of them fill a page.
+    const long = 'x'.repeat(61)
+    expect(layout(['word', ...repeat(29, () => long)])).toEqual({
+      breaks: [],
+      spacedHeadings: none,
+      remaining: 0
+    })
+    expect(layout(['word', ...repeat(30, () => long)]).breaks.map((b) => b.line)).toEqual([30])
   })
 
   it('puts the title page on a page of its own', () => {
-    // The blank line after the title page is shown on it too, leaving 51 lines.
+    // The blank line after the title page is shown on it too, leaving 56 lines.
     expect(layout(['Title: Big Fish', 'Author: John August', '', 'Action.'])).toEqual({
-      breaks: [{ line: 3, offset: 0, page: 1, remaining: 51 }],
-      remaining: 53
+      breaks: [{ line: 3, offset: 0, page: 1, remaining: 56 }],
+      spacedHeadings: none,
+      remaining: 58
     })
   })
 
   it('starts a new page after === at the next content', () => {
     expect(layout(['Before.', '', '===', '', 'After.'])).toEqual({
-      breaks: [{ line: 4, offset: 0, page: 2, remaining: 51, continued: undefined }],
-      remaining: 53
+      breaks: [{ line: 4, offset: 0, page: 2, remaining: 56, continued: undefined }],
+      spacedHeadings: none,
+      remaining: 58
     })
   })
 
-  it('keeps a scene heading with the start of what follows', () => {
-    const before = [...repeat(51, () => 'word'), '']
-    // 52 lines used: one more line of action still fits...
-    expect(layout([...before, 'Action.']).breaks).toEqual([])
-    // ...but a heading also needs the blank line and the first line after it.
-    expect(layout([...before, 'INT. HOUSE - DAY', '', 'Action.'])).toEqual({
-      breaks: [{ line: 52, offset: 0, page: 2, remaining: 2, continued: undefined }],
+  it('puts an extra blank row above scene headings, except at the top of a page', () => {
+    const scene = ['INT. HOUSE - DAY', '', 'Action.']
+    expect(layout([...scene, '', ...scene])).toEqual({
+      breaks: [],
+      spacedHeadings: new Set([4]),
+      // 3 + 1 + (1 + 3) lines
       remaining: 51
     })
   })
 
-  // 48 lines of action and a blank line leave 5 lines on the page, one of them for (MORE).
-  const nearlyFullPage = [...repeat(48, () => 'word'), '']
+  it('keeps a scene heading with the start of what follows', () => {
+    // 55 lines used: the heading, its extra row, the blank line and a line of action fit...
+    const before = [...repeat(54, () => 'word'), '']
+    expect(layout([...before, 'INT. HOUSE - DAY', '', 'Action.'])).toEqual({
+      breaks: [],
+      spacedHeadings: new Set([55]),
+      remaining: 0
+    })
+    // ...but not after one more line, though the line of action alone would.
+    const more = [...before, 'word', '']
+    expect(layout([...more, 'Action.']).breaks).toEqual([])
+    expect(layout([...more, 'INT. HOUSE - DAY', '', 'Action.'])).toEqual({
+      breaks: [{ line: 57, offset: 0, page: 2, remaining: 2, continued: undefined }],
+      spacedHeadings: none,
+      remaining: 56
+    })
+  })
+
+  // 53 lines of action and a blank line leave 5 lines on the page, one of them for (MORE).
+  const nearlyFullPage = [...repeat(53, () => 'word'), '']
   const speech = (cue: string, lines: string[]): string[] => [...nearlyFullPage, cue, ...lines]
 
   it('splits a speech between lines with (MORE) and (CONT’D)', () => {
@@ -154,9 +186,10 @@ describe('paginate rules', () => {
       repeat(10, (n) => `Line ${n}.`)
     )
     expect(layout(lines)).toEqual({
-      breaks: [{ line: 53, offset: 0, page: 2, remaining: 0, continued: "BOB (V.O.) (CONT'D)" }],
+      breaks: [{ line: 58, offset: 0, page: 2, remaining: 0, continued: "BOB (V.O.) (CONT'D)" }],
+      spacedHeadings: none,
       // The (CONT'D) cue and the 7 remaining lines.
-      remaining: 46
+      remaining: 51
     })
   })
 
@@ -176,14 +209,14 @@ describe('paginate rules', () => {
     const lines = speech('BOB', ['Line 1.', 'Line 2.', '(beat)', ...repeat(8, (n) => `More ${n}.`)])
     // The page ends before the parenthetical, not after it with one more line.
     expect(layout(lines).breaks).toEqual([
-      { line: 52, offset: 0, page: 2, remaining: 1, continued: "BOB (CONT'D)" }
+      { line: 57, offset: 0, page: 2, remaining: 1, continued: "BOB (CONT'D)" }
     ])
   })
 
   it('moves a speech to the next page when two lines of it do not fit', () => {
-    const lines = [...repeat(50, () => 'word'), '', 'BOB', ...repeat(10, (n) => `Line ${n}.`)]
+    const lines = [...repeat(55, () => 'word'), '', 'BOB', ...repeat(10, (n) => `Line ${n}.`)]
     expect(layout(lines).breaks).toEqual([
-      { line: 51, offset: 0, page: 2, remaining: 3, continued: undefined }
+      { line: 56, offset: 0, page: 2, remaining: 3, continued: undefined }
     ])
   })
 
@@ -191,19 +224,20 @@ describe('paginate rules', () => {
     const paragraph = repeat(20, (n) => `This is sentence number ${n}.`).join(' ')
     const lines = speech('BOB', [paragraph])
     const [split] = layout(lines).breaks
-    expect(split).toMatchObject({ line: 50, page: 2, continued: "BOB (CONT'D)" })
+    expect(split).toMatchObject({ line: 55, page: 2, continued: "BOB (CONT'D)" })
     expect(paragraph.slice(0, split.offset)).toMatch(/\. $/)
   })
 
   it('splits a speech longer than a page across several pages', () => {
     const lines = ['BOB', ...repeat(120, (n) => `Line ${n}.`)]
-    // Each full page holds the cue, 52 lines and (MORE).
+    // Each full page holds the cue, 57 lines and (MORE).
     expect(layout(lines)).toEqual({
       breaks: [
-        { line: 53, offset: 0, page: 2, remaining: 0, continued: "BOB (CONT'D)" },
-        { line: 105, offset: 0, page: 3, remaining: 0, continued: "BOB (CONT'D)" }
+        { line: 58, offset: 0, page: 2, remaining: 0, continued: "BOB (CONT'D)" },
+        { line: 115, offset: 0, page: 3, remaining: 0, continued: "BOB (CONT'D)" }
       ],
-      remaining: 37
+      spacedHeadings: none,
+      remaining: 52
     })
   })
 })

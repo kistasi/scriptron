@@ -1,59 +1,80 @@
 // Pagination and scene numbering for classified Fountain lines.
-// Measurements follow standard screenplay format: 12pt Courier (10 characters per inch,
-// 6 lines per inch) on US Letter with 1in top/bottom margins, so 54 lines per page.
+// Measurements follow screenplay format as Beat prints it on A4: 12pt Courier (10 characters
+// per inch, 6 lines per inch) in a 60 character column, 59 lines per page.
 
 import { sceneNumber, type LineType } from './fountainLines'
 
-// US Letter page and margins, in inches. The editor theme is derived from these too,
-// so that what is shown matches the pagination.
-export const page = { width: 8.5, height: 11, top: 1, right: 1, bottom: 1, left: 1.5 }
+// A4 page and margins, in inches. The editor theme and the PDF export are derived from these
+// too, so that what is shown and printed matches the pagination.
+export const page = {
+  width: 8.27,
+  height: 11.69,
+  top: 0.8875,
+  right: 0.87,
+  bottom: 0.96,
+  left: 1.4
+}
+
+// Position of the page number's line from the top and right edges of the page, in inches.
+export const pageNumber = { top: 0.375, right: 0.55 }
+
+// Distance of the scene numbers from the left and right edges of the page, in inches.
+export const sceneNumberMargins = { left: 0.7, right: 0.75 }
 
 // Indents of elements from the left and right edges of the text column, in inches.
+// Scene headings leave room for the scene number at the right edge of the column.
 export const elementIndents: Partial<Record<LineType, { left: number; right: number }>> = {
-  character: { left: 2.2, right: 0 },
-  parenthetical: { left: 1.6, right: 2 },
+  'scene-heading': { left: 0, right: 0.5 },
+  character: { left: 1.9, right: 0 },
+  parenthetical: { left: 1.5, right: 1.5 },
   dialogue: { left: 1, right: 1.5 }
 }
 
 const charactersPerInch = 10
 const linesPerInch = 6
 
-export const LINES_PER_PAGE = (page.height - page.top - page.bottom) * linesPerInch
+// The epsilon absorbs floating point error.
+export const LINES_PER_PAGE = Math.floor(
+  (page.height - page.top - page.bottom) * linesPerInch + 1e-9
+)
 
 // Text column width in characters for an element. (The epsilon absorbs floating point error.)
-function columnWidth(type: LineType): number {
+export function columnWidth(type: LineType): number {
   const indent = elementIndents[type] ?? { left: 0, right: 0 }
   const inches = page.width - page.left - page.right - indent.left - indent.right
   return Math.floor(inches * charactersPerInch + 1e-9)
 }
 
-// Approximates the browser's word wrapping for a monospace line of the given width.
-// Returns the offset at which each visual row starts.
+// Approximates the browser's word wrapping (white-space: pre-wrap) for a monospace line of
+// the given width. Returns the offset at which each visual row starts.
 export function rowStarts(text: string, width: number): number[] {
   const starts = [0]
   let column = 0
   let position = 0
   for (const word of text.split(' ')) {
-    if (column > 0) {
-      if (column + 1 + word.length > width) {
-        // The space before the word stays at the end of the previous row.
+    // A word can also break after a hyphen between letters: "energy-|drink".
+    word.split(/(?<=\p{L}-)(?=\p{L})/u).forEach((piece, k) => {
+      // The space before a word stays at the end of the previous row when breaking there.
+      const space = k === 0 && column > 0 ? 1 : 0
+      if (column > 0 && column + space + piece.length > width) {
         starts.push(position)
         column = 0
       } else {
-        column++
+        column += space
       }
-    }
-    let remaining = word.length
-    let wordPosition = position
-    while (column + remaining > width) {
-      const taken = width - column
-      wordPosition += taken
-      starts.push(wordPosition)
-      remaining -= taken
-      column = 0
-    }
-    column += remaining
-    position += word.length + 1
+      let remaining = piece.length
+      let piecePosition = position
+      while (column + remaining > width) {
+        const taken = width - column
+        piecePosition += taken
+        starts.push(piecePosition)
+        remaining -= taken
+        column = 0
+      }
+      column += remaining
+      position += piece.length
+    })
+    position++
   }
   return starts
 }
@@ -78,6 +99,8 @@ export interface PageBreak {
 
 export interface Pagination {
   breaks: PageBreak[]
+  // Scene heading lines that have an extra blank row above them: all but those at the top of a page.
+  spacedHeadings: Set<number>
   // Unused lines at the bottom of the last page.
   remaining: number
 }
@@ -167,6 +190,7 @@ function continuedCue(cue: string): string {
 
 export function paginate(lines: string[], types: LineType[]): Pagination {
   const breaks: PageBreak[] = []
+  const spacedHeadings = new Set<number>()
   const height = (i: number): number => wrappedLineCount(lines[i], columnWidth(types[i]))
 
   // The title page is a page of its own and isn't numbered.
@@ -271,6 +295,8 @@ export function paginate(lines: string[], types: LineType[]): Pagination {
     let needed = height(i)
     if (type === 'scene-heading') {
       // Keep the heading with the blank lines and the first two lines of what follows.
+      // Except at the top of a page, a heading has an extra blank row above it.
+      if (used > 0) needed++
       let next = i + 1
       while (types[next] === 'empty') {
         needed++
@@ -281,6 +307,10 @@ export function paginate(lines: string[], types: LineType[]): Pagination {
       }
     }
     if (used > 0 && used + needed > LINES_PER_PAGE) newPage(i)
+    if (type === 'scene-heading' && used > 0) {
+      spacedHeadings.add(i)
+      used++
+    }
     used += height(i)
 
     // An explicit page break (===) ends the page; the next page starts at the next content.
@@ -292,7 +322,7 @@ export function paginate(lines: string[], types: LineType[]): Pagination {
     }
   }
 
-  return { breaks, remaining: Math.max(0, LINES_PER_PAGE - used) }
+  return { breaks, spacedHeadings, remaining: Math.max(0, LINES_PER_PAGE - used) }
 }
 
 // Scene number for each scene heading line: the explicit "#12#" number if present,

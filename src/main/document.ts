@@ -4,6 +4,7 @@ import { basename } from 'path'
 import { channels, type MenuCommand, type OpenedFile, type SavedFile } from '../shared/ipc'
 
 const fountainFilters = [{ name: 'Fountain', extensions: ['fountain'] }]
+const pdfFilters = [{ name: 'PDF', extensions: ['pdf'] }]
 
 // webContents ids of windows whose document has unsaved changes
 const dirtyWindows = new Set<number>()
@@ -83,10 +84,38 @@ async function saveDocument(
   }
 }
 
+// Prints the window (its print view, see PrintView) to a PDF at a location the user chooses.
+async function exportPdf(window: BrowserWindow, name: string): Promise<boolean> {
+  const result = await dialog.showSaveDialog(window, {
+    title: 'Export PDF',
+    defaultPath: name,
+    filters: pdfFilters
+  })
+  if (result.canceled || !result.filePath) return false
+
+  try {
+    const pdf = await window.webContents.printToPDF({
+      preferCSSPageSize: true,
+      printBackground: true,
+      margins: { top: 0, bottom: 0, left: 0, right: 0 }
+    })
+    await writeFile(result.filePath, pdf)
+    return true
+  } catch (error) {
+    dialog.showErrorBox('Could not export PDF', `${result.filePath}\n\n${(error as Error).message}`)
+    return false
+  }
+}
+
 export function registerDocumentHandlers(): void {
   ipcMain.handle(channels.saveFile, (event, content: string, path: string | null) => {
     const window = BrowserWindow.fromWebContents(event.sender)
     return window ? saveDocument(window, content, path) : null
+  })
+
+  ipcMain.handle(channels.exportPdf, (event, name: string) => {
+    const window = BrowserWindow.fromWebContents(event.sender)
+    return window ? exportPdf(window, name) : false
   })
 
   ipcMain.on(channels.setDirty, (event, dirty: boolean) => {

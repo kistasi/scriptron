@@ -1,7 +1,14 @@
 import { type Extension, type Range, StateField, type Text } from '@codemirror/state'
 import { Decoration, type DecorationSet, EditorView, WidgetType } from '@codemirror/view'
 import { classifyLines, inlineRanges, type InlineStyle, type LineType } from './lib/fountainLines'
-import { elementIndents, page, paginate, sceneNumbers } from './lib/screenplayLayout'
+import {
+  elementIndents,
+  page,
+  pageNumber,
+  paginate,
+  sceneNumberMargins,
+  sceneNumbers
+} from './lib/screenplayLayout'
 
 // CSS pixels: 96 per inch, and 12pt type at 6 lines per inch is 16px per line.
 const pixelsPerInch = 96
@@ -109,10 +116,14 @@ function buildDecorations(doc: Text): DecorationSet {
     const line = doc.line(n)
     const type = types[n - 1]
     const scene = scenes.get(n - 1)
+    const spaced = pagination.spacedHeadings.has(n - 1)
     decorations.push(
-      (scene === undefined
+      (scene === undefined && !spaced
         ? lineDecoration(type)
-        : Decoration.line({ class: `fl-${type}`, attributes: { 'data-scene': scene } })
+        : Decoration.line({
+            class: spaced ? `fl-${type} fl-spaced` : `fl-${type}`,
+            attributes: scene === undefined ? {} : { 'data-scene': scene }
+          })
       ).range(line.from)
     )
     for (const { from, to, style } of inlineRanges(line.text, type)) {
@@ -158,12 +169,17 @@ const screenplayTheme = EditorView.theme({
     lineHeight: `${lineHeight}px`
   },
   '.cm-content': {
-    flex: `0 1 ${inches(page.width)}`,
+    // A hair wider than the page: layout rounding must never make a column narrower than its
+    // width in characters, or the browser would wrap lines earlier than the pagination.
+    flex: `0 1 ${inches(page.width + 0.01)}`,
     boxSizing: 'border-box',
     padding: [page.top, page.right, page.bottom, page.left].map(inches).join(' '),
     background: 'var(--paper)',
     caretColor: 'var(--caret)'
   },
+  // Spaces at the end of a row hang, as in the pagination (CodeMirror's default, break-spaces,
+  // would wrap a word whose following space doesn't fit).
+  '.cm-content.cm-lineWrapping': { whiteSpace: 'pre-wrap' },
   '.cm-line': { padding: '0' },
   '.cm-cursor': { borderLeftColor: 'var(--caret)' },
   '.cm-selectionBackground': { background: 'var(--selection)' },
@@ -171,14 +187,30 @@ const screenplayTheme = EditorView.theme({
     background: 'var(--selection-focused)'
   },
 
-  '.fl-scene-heading': { position: 'relative', fontWeight: 'bold', textTransform: 'uppercase' },
+  ...elementStyles,
+  // Extends the scene heading's indents from elementStyles.
+  '.fl-scene-heading': {
+    ...elementStyles['.fl-scene-heading'],
+    position: 'relative',
+    fontWeight: 'bold',
+    textTransform: 'uppercase'
+  },
   '.fl-scene-heading[data-scene]::before, .fl-scene-heading[data-scene]::after': {
     content: 'attr(data-scene)',
     position: 'absolute',
     top: '0'
   },
-  '.fl-scene-heading[data-scene]::before': { right: 'calc(100% + 0.5in)' },
-  '.fl-scene-heading[data-scene]::after': { left: 'calc(100% + 0.4in)' },
+  // Scene numbers are positioned from the edges of the line's padding box, which are the
+  // edges of the text column (the heading's right indent is padding).
+  '.fl-scene-heading[data-scene]::before': {
+    left: inches(-(page.left - sceneNumberMargins.left))
+  },
+  '.fl-scene-heading[data-scene]::after': {
+    right: inches(-(page.right - sceneNumberMargins.right))
+  },
+  // An extra blank row above scene headings, except at the top of a page.
+  '.fl-spaced': { paddingTop: `${lineHeight}px` },
+  '.fl-spaced[data-scene]::before, .fl-spaced[data-scene]::after': { top: `${lineHeight}px` },
 
   '.fl-break': {
     display: 'block',
@@ -199,12 +231,11 @@ const screenplayTheme = EditorView.theme({
   '.fl-break-top': { position: 'relative', height: inches(page.top) },
   '.fl-break-number': {
     position: 'absolute',
-    top: inches(page.top / 2),
-    right: inches(page.right)
+    top: inches(pageNumber.top),
+    right: inches(pageNumber.right)
   },
   // (MORE) and (CONT'D) sit at the character cue indent.
   '.fl-break-cue': { paddingLeft: inches(page.left + (elementIndents.character?.left ?? 0)) },
-  ...elementStyles,
   '.fl-transition': { textAlign: 'right' },
   '.fl-centered': { textAlign: 'center' },
   '.fl-title-page': { color: 'var(--title-page)' },

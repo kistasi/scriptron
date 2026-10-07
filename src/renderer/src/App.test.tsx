@@ -45,7 +45,8 @@ beforeEach(() => {
     onFileOpened: vi.fn((callback) => ((fileOpened = callback), () => {})),
     onMenuCommand: vi.fn((callback) => ((menuCommand = callback), () => {})),
     saveFile: vi.fn(),
-    setDirty: vi.fn()
+    setDirty: vi.fn(),
+    exportPdf: vi.fn()
   }
   window.api = api as unknown as Api
   render(<App />)
@@ -154,5 +155,20 @@ describe('App', () => {
     // Neither the saved name nor the saved text is applied to the newly opened file.
     expect(document.title).toBe('Other.fountain — scriptron')
     expect(isDirty()).toBe(false)
+  })
+
+  it('exports a PDF of the print view, titled after the screenplay', async () => {
+    open({ ...bigFish, content: 'Title: Big Fish\n\nEXT. RIVER - DAY' })
+    let finish!: (written: boolean) => void
+    api.exportPdf.mockReturnValueOnce(new Promise((resolve) => (finish = resolve)))
+    await act(async () => menuCommand('export-pdf'))
+
+    expect(api.exportPdf).toHaveBeenCalledWith('Big Fish.pdf')
+    expect(document.title).toBe('Big Fish')
+    expect(document.querySelector('.print')?.textContent).toContain('EXT. RIVER - DAY')
+
+    await act(async () => finish(true))
+    expect(document.querySelector('.print')).toBeNull()
+    expect(document.title).toBe('Big Fish.fountain — scriptron')
   })
 })

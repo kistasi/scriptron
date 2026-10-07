@@ -16,7 +16,9 @@ const api = {
   // Pass path = null to ask the user where to save. Resolves to null if cancelled or failed.
   saveFile: (content: string, path: string | null): Promise<SavedFile | null> =>
     ipcRenderer.invoke(channels.saveFile, content, path),
-  setDirty: (dirty: boolean): void => ipcRenderer.send(channels.setDirty, dirty)
+  setDirty: (dirty: boolean): void => ipcRenderer.send(channels.setDirty, dirty),
+  // Prints the window's print view to a PDF. Resolves to false if cancelled or failed.
+  exportPdf: (name: string): Promise<boolean> => ipcRenderer.invoke(channels.exportPdf, name)
 }
 
 export type Api = typeof api

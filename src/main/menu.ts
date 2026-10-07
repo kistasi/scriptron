@@ -20,6 +20,12 @@ export function buildMenu(): void {
           click: () => sendMenuCommand('save-as')
         },
         { type: 'separator' },
+        {
+          label: 'Export PDF…',
+          accelerator: 'Shift+CmdOrCtrl+E',
+          click: () => sendMenuCommand('export-pdf')
+        },
+        { type: 'separator' },
         isMac ? { role: 'close' } : { role: 'quit' }
       ]
     },
