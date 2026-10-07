@@ -1,99 +1,69 @@
-import React, { useEffect, useMemo, useState } from 'react'
-import fountain, { type FountainJson, type SceneElement } from './lib/fountain'
+import React, { useEffect, useRef, useState } from 'react'
+import { Editor } from './Editor'
 
-interface OpenedFile {
-  path: string
+interface Document {
+  // Changes whenever a different document is loaded, to remount the editor.
+  id: number
+  // null until the document has been saved somewhere.
+  path: string | null
   name: string
-  content: string
+  initialText: string
 }
 
-// Parser output is HTML-escaped with only inline markup added, so it is safe to inject.
-function Markup({
-  as: Tag = 'span',
-  html,
-  ...rest
-}: {
-  as?: React.ElementType
-  html: string
-} & React.HTMLAttributes<HTMLElement>): React.JSX.Element {
-  return <Tag {...rest} dangerouslySetInnerHTML={{ __html: html }} />
-}
+let nextDocumentId = 0
 
-function TitlePage({ titlePage }: { titlePage: FountainJson['title_page'] }): React.JSX.Element {
-  const { title, ...rest } = titlePage
-  return (
-    <header style={{ textAlign: 'center', marginBottom: 48 }}>
-      {title?.map((t, i) => (
-        <Markup key={i} as="h1" html={t} />
-      ))}
-      {Object.entries(rest).flatMap(([key, values]) =>
-        (values ?? []).map((v, i) => <Markup key={`${key}-${i}`} as="p" html={v} />)
-      )}
-    </header>
-  )
-}
-
-function Element({ element }: { element: SceneElement }): React.JSX.Element | null {
-  switch (element.type) {
-    case 'heading':
-      return <Markup as="h3" html={element.heading} />
-    case 'transition':
-      return <Markup as="p" style={{ textAlign: 'right' }} html={element.text} />
-    case 'section':
-      return <Markup as="h2" html={element.name} />
-    case 'synopsis':
-      return <Markup as="p" style={{ fontStyle: 'italic' }} html={element.text} />
-    case 'action':
-      return <Markup as="p" html={element.text} />
-    case 'dialogue-single':
-    case 'dialogue-dual':
-      return (
-        <div style={{ display: 'flex', gap: 24 }}>
-          {element.characters.map((c, i) => (
-            <div key={i} style={{ flex: 1, margin: '0 auto', maxWidth: '60%' }}>
-              <Markup as="p" style={{ textAlign: 'center' }} html={c.name} />
-              {c.lines.map((line, j) => (
-                <Markup
-                  key={j}
-                  as="p"
-                  style={line.type === 'parenthetical' ? { paddingLeft: '15%' } : undefined}
-                  html={line.text}
-                />
-              ))}
-            </div>
-          ))}
-        </div>
-      )
-    default:
-      return null
-  }
+function createDocument(path: string | null, name: string, text: string): Document {
+  return { id: nextDocumentId++, path, name, initialText: text }
 }
 
 function App(): React.JSX.Element {
-  const [file, setFile] = useState<OpenedFile | null>(null)
+  const [doc, setDoc] = useState(() => createDocument(null, 'Untitled', ''))
+  const [text, setText] = useState('')
+  const [savedText, setSavedText] = useState('')
+  const dirty = text !== savedText
 
-  useEffect(() => window.api.onFileOpened(setFile), [])
-
-  const script = useMemo(() => (file ? fountain.parseToJson(file.content) : null), [file])
+  // Menu commands arrive outside React's render cycle and need the latest values.
+  const latest = useRef({ doc, text })
+  useEffect(() => {
+    latest.current = { doc, text }
+  }, [doc, text])
 
   useEffect(() => {
-    document.title = file ? `${file.name} — scriptron` : 'scriptron'
-  }, [file])
+    const load = (newDoc: Document): void => {
+      setDoc(newDoc)
+      setText(newDoc.initialText)
+      setSavedText(newDoc.initialText)
+    }
 
-  if (!file || !script) return <>scriptron</>
+    const save = async (saveAs: boolean): Promise<void> => {
+      const { doc, text } = latest.current
+      const saved = await window.api.saveFile(text, saveAs ? null : doc.path)
+      if (!saved) return
+      // Ignore the result if another document was loaded while the save dialog was open.
+      setDoc((current) => (current.id === doc.id ? { ...current, ...saved } : current))
+      if (latest.current.doc.id === doc.id) setSavedText(text)
+    }
 
-  return (
-    <article style={{ fontFamily: 'Courier Prime, Courier, monospace', padding: 32 }}>
-      <TitlePage titlePage={script.title_page} />
-      {script.script.scenes?.map((scene, i) => (
-        <section key={i}>
-          {scene.map((element, j) => (
-            <Element key={j} element={element} />
-          ))}
-        </section>
-      ))}
-    </article>
-  )
+    const unsubscribeOpened = window.api.onFileOpened((file) =>
+      load(createDocument(file.path, file.name, file.content))
+    )
+    const unsubscribeMenu = window.api.onMenuCommand((command) => {
+      if (command === 'new') load(createDocument(null, 'Untitled', ''))
+      else save(command === 'save-as')
+    })
+
+    return () => {
+      unsubscribeOpened()
+      unsubscribeMenu()
+    }
+  }, [])
+
+  useEffect(() => {
+    window.api.setDirty(dirty)
+    document.title = `${dirty ? '• ' : ''}${doc.name} — scriptron`
+  }, [dirty, doc.name])
+
+  return <Editor key={doc.id} initialText={doc.initialText} onChange={setText} />
 }
 
 export default App

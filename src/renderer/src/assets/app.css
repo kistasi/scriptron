@@ -1,0 +1,15 @@
+html,
+body,
+#root {
+  height: 100%;
+  margin: 0;
+}
+
+body {
+  background: #eceae6;
+  color: #111;
+}
+
+.editor {
+  height: 100%;
+}

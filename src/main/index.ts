@@ -2,12 +2,12 @@ import { app, shell, BrowserWindow } from 'electron'
 import { join } from 'path'
 import { electronApp, optimizer, is } from '@electron-toolkit/utils'
 import icon from '../../resources/icon.png?asset'
-import { buildMenu } from './menu'
+import { buildMenu, guardUnsavedChanges, registerFileHandlers } from './menu'
 
 function createWindow(): void {
   const mainWindow = new BrowserWindow({
-    width: 900,
-    height: 670,
+    width: 1400,
+    height: 900,
     show: false,
     ...(process.platform === 'linux' ? { icon } : {}),
     webPreferences: {
@@ -15,6 +15,8 @@ function createWindow(): void {
       sandbox: false
     }
   })
+
+  guardUnsavedChanges(mainWindow)
 
   mainWindow.on('ready-to-show', () => {
     mainWindow.show()
@@ -39,6 +41,7 @@ app.whenReady().then(() => {
     optimizer.watchWindowShortcuts(window)
   })
 
+  registerFileHandlers()
   buildMenu()
   createWindow()
 
