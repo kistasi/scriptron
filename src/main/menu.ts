@@ -1,4 +1,5 @@
-import { Menu, MenuItemConstructorOptions, app } from 'electron'
+import { Menu, MenuItemConstructorOptions, app, nativeTheme } from 'electron'
+import { type Appearance, setAppearance } from './appearance'
 import { newDocument, openDocument, sendMenuCommand } from './document'
 
 export function buildMenu(): void {
@@ -23,7 +24,30 @@ export function buildMenu(): void {
       ]
     },
     { role: 'editMenu' },
-    { role: 'viewMenu' },
+    {
+      label: 'View',
+      submenu: [
+        { role: 'reload' },
+        { role: 'forceReload' },
+        { role: 'toggleDevTools' },
+        { type: 'separator' },
+        {
+          label: 'Appearance',
+          submenu: (['system', 'light', 'dark'] as Appearance[]).map((appearance) => ({
+            label: appearance[0].toUpperCase() + appearance.slice(1),
+            type: 'radio',
+            checked: nativeTheme.themeSource === appearance,
+            click: () => setAppearance(appearance)
+          }))
+        },
+        { type: 'separator' },
+        { role: 'resetZoom' },
+        { role: 'zoomIn' },
+        { role: 'zoomOut' },
+        { type: 'separator' },
+        { role: 'togglefullscreen' }
+      ]
+    },
     { role: 'windowMenu' }
   ]
 

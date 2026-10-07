@@ -4,12 +4,14 @@ import { electronApp, optimizer, is } from '@electron-toolkit/utils'
 import icon from '../../resources/icon.png?asset'
 import { guardUnsavedChanges, registerDocumentHandlers } from './document'
 import { buildMenu } from './menu'
+import { loadAppearance, windowBackground } from './appearance'
 
 function createWindow(): void {
   const mainWindow = new BrowserWindow({
     width: 1400,
     height: 900,
     show: false,
+    backgroundColor: windowBackground(),
     ...(process.platform === 'linux' ? { icon } : {}),
     webPreferences: {
       preload: join(__dirname, '../preload/index.js'),
@@ -42,6 +44,7 @@ app.whenReady().then(() => {
     optimizer.watchWindowShortcuts(window)
   })
 
+  loadAppearance()
   registerDocumentHandlers()
   buildMenu()
   createWindow()

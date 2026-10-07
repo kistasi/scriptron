@@ -143,13 +143,15 @@ const elementStyles = Object.fromEntries(
 )
 
 // The page and element geometry comes from screenplayLayout, so that it matches pagination.
+// Colors are CSS variables from app.css, which switch with the light or dark appearance.
 const screenplayTheme = EditorView.theme({
   '&': { height: '100%' },
   '&.cm-focused': { outline: 'none' },
   '.cm-scroller': {
     justifyContent: 'center',
     padding: '24px 16px',
-    background: '#eceae6',
+    background: 'var(--desk)',
+    color: 'var(--ink)',
     fontFamily: "'Courier Prime', Courier, monospace",
     fontSize: '12pt',
     // 6 lines per inch, as on a printed page, so pagination matches what is shown.
@@ -159,10 +161,15 @@ const screenplayTheme = EditorView.theme({
     flex: `0 1 ${inches(page.width)}`,
     boxSizing: 'border-box',
     padding: [page.top, page.right, page.bottom, page.left].map(inches).join(' '),
-    background: '#fff',
-    caretColor: '#000'
+    background: 'var(--paper)',
+    caretColor: 'var(--caret)'
   },
   '.cm-line': { padding: '0' },
+  '.cm-cursor': { borderLeftColor: 'var(--caret)' },
+  '.cm-selectionBackground': { background: 'var(--selection)' },
+  '&.cm-focused > .cm-scroller > .cm-selectionLayer .cm-selectionBackground': {
+    background: 'var(--selection-focused)'
+  },
 
   '.fl-scene-heading': { position: 'relative', fontWeight: 'bold', textTransform: 'uppercase' },
   '.fl-scene-heading[data-scene]::before, .fl-scene-heading[data-scene]::after': {
@@ -176,8 +183,8 @@ const screenplayTheme = EditorView.theme({
   '.fl-break': {
     display: 'block',
     margin: breakMargin(),
-    background: '#fff',
-    color: '#000',
+    background: 'var(--paper)',
+    color: 'var(--ink)',
     fontWeight: 'normal',
     fontStyle: 'normal',
     textAlign: 'left',
@@ -188,7 +195,7 @@ const screenplayTheme = EditorView.theme({
   '.fl-break-page .fl-break-fill': {
     height: `calc(var(--remaining) * ${lineHeight}px + ${inches(page.bottom)})`
   },
-  '.fl-break-gap': { height: `${pageGap}px`, background: '#eceae6' },
+  '.fl-break-gap': { height: `${pageGap}px`, background: 'var(--desk)' },
   '.fl-break-top': { position: 'relative', height: inches(page.top) },
   '.fl-break-number': {
     position: 'absolute',
@@ -200,17 +207,17 @@ const screenplayTheme = EditorView.theme({
   ...elementStyles,
   '.fl-transition': { textAlign: 'right' },
   '.fl-centered': { textAlign: 'center' },
-  '.fl-title-page': { color: '#555' },
-  '.fl-section': { color: '#8a6d3b' },
-  '.fl-synopsis': { color: '#777', fontStyle: 'italic' },
-  '.fl-note, .fl-inline-note': { color: '#3a7a3a' },
-  '.fl-boneyard': { color: '#aaa' },
-  '.fl-page-break': { color: '#aaa' },
+  '.fl-title-page': { color: 'var(--title-page)' },
+  '.fl-section': { color: 'var(--section)' },
+  '.fl-synopsis': { color: 'var(--synopsis)', fontStyle: 'italic' },
+  '.fl-note, .fl-inline-note': { color: 'var(--note)' },
+  '.fl-boneyard': { color: 'var(--boneyard)' },
+  '.fl-page-break': { color: 'var(--boneyard)' },
 
   '.fl-bold': { fontWeight: 'bold' },
   '.fl-italic': { fontStyle: 'italic' },
   '.fl-underline': { textDecoration: 'underline' },
-  '.fl-marker': { color: '#bbb', fontWeight: 'normal', fontStyle: 'normal' }
+  '.fl-marker': { color: 'var(--marker)', fontWeight: 'normal', fontStyle: 'normal' }
 })
 
 export function fountainFormatting(): Extension {
