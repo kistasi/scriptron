@@ -116,28 +116,33 @@ const emphasis: [RegExp, InlineStyle[]][] = [
   [/(?<!\\)_(?=\S)(.+?)(?<=\S)(?<!\\)_/g, ['underline']]
 ]
 
-// Leading/trailing Fountain syntax characters for a line, which are shown dimmed.
+// An explicit scene number at the end of a scene heading: "INT. HOUSE - DAY #12A#".
+export const sceneNumber = /\s*#([^#\s][^#]*)#\s*$/
+
+// Fountain syntax characters at the start and end of a line, which are shown dimmed.
+const leadingMarker: Partial<Record<LineType, RegExp>> = {
+  'scene-heading': /^\./,
+  character: /^@/,
+  transition: /^>\s*/,
+  centered: /^>\s*/,
+  action: /^!/,
+  section: /^#+\s*/,
+  synopsis: /^=\s*/
+}
+
+const trailingMarker: Partial<Record<LineType, RegExp>> = {
+  centered: /\s*<\s*$/,
+  character: /\s*\^\s*$/,
+  'scene-heading': sceneNumber
+}
+
 function markerRanges(text: string, type: LineType): InlineRange[] {
   const ranges: InlineRange[] = []
   const lead = text.length - text.trimStart().length
-  const leading: Partial<Record<LineType, RegExp>> = {
-    'scene-heading': /^\./,
-    character: /^@/,
-    transition: /^>\s*/,
-    centered: /^>\s*/,
-    action: /^!/,
-    section: /^#+\s*/,
-    synopsis: /^=\s*/
-  }
-  const match = leading[type]?.exec(text.slice(lead))
+  const match = leadingMarker[type]?.exec(text.slice(lead))
   if (match) ranges.push({ from: lead, to: lead + match[0].length, style: 'marker' })
 
-  const trailing: Partial<Record<LineType, RegExp>> = {
-    centered: /\s*<\s*$/,
-    character: /\s*\^\s*$/,
-    'scene-heading': /\s*#[^#\s][^#]*#\s*$/
-  }
-  const end = trailing[type]?.exec(text)
+  const end = trailingMarker[type]?.exec(text)
   if (end) ranges.push({ from: end.index, to: text.length, style: 'marker' })
 
   return ranges

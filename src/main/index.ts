@@ -2,7 +2,8 @@ import { app, shell, BrowserWindow } from 'electron'
 import { join } from 'path'
 import { electronApp, optimizer, is } from '@electron-toolkit/utils'
 import icon from '../../resources/icon.png?asset'
-import { buildMenu, guardUnsavedChanges, registerFileHandlers } from './menu'
+import { guardUnsavedChanges, registerDocumentHandlers } from './document'
+import { buildMenu } from './menu'
 
 function createWindow(): void {
   const mainWindow = new BrowserWindow({
@@ -12,7 +13,7 @@ function createWindow(): void {
     ...(process.platform === 'linux' ? { icon } : {}),
     webPreferences: {
       preload: join(__dirname, '../preload/index.js'),
-      sandbox: false
+      sandbox: true
     }
   })
 
@@ -41,7 +42,7 @@ app.whenReady().then(() => {
     optimizer.watchWindowShortcuts(window)
   })
 
-  registerFileHandlers()
+  registerDocumentHandlers()
   buildMenu()
   createWindow()
 

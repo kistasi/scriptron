@@ -2,17 +2,30 @@
 // Measurements follow standard screenplay format: 12pt Courier (10 characters per inch,
 // 6 lines per inch) on US Letter with 1in top/bottom margins, so 54 lines per page.
 
-import type { LineType } from './fountainLines'
+import { sceneNumber, type LineType } from './fountainLines'
 
-export const LINES_PER_PAGE = 54
+// US Letter page and margins, in inches. The editor theme is derived from these too,
+// so that what is shown matches the pagination.
+export const page = { width: 8.5, height: 11, top: 1, right: 1, bottom: 1, left: 1.5 }
 
-// Text column width in characters for each element (6in text column, minus indents).
-const columnWidth: Partial<Record<LineType, number>> = {
-  character: 38,
-  dialogue: 35,
-  parenthetical: 24
+// Indents of elements from the left and right edges of the text column, in inches.
+export const elementIndents: Partial<Record<LineType, { left: number; right: number }>> = {
+  character: { left: 2.2, right: 0 },
+  parenthetical: { left: 1.6, right: 2 },
+  dialogue: { left: 1, right: 1.5 }
 }
-const defaultWidth = 60
+
+const charactersPerInch = 10
+const linesPerInch = 6
+
+export const LINES_PER_PAGE = (page.height - page.top - page.bottom) * linesPerInch
+
+// Text column width in characters for an element. (The epsilon absorbs floating point error.)
+function columnWidth(type: LineType): number {
+  const indent = elementIndents[type] ?? { left: 0, right: 0 }
+  const inches = page.width - page.left - page.right - indent.left - indent.right
+  return Math.floor(inches * charactersPerInch + 1e-9)
+}
 
 // Approximates the browser's word wrapping for a monospace line of the given width.
 // Returns the offset at which each visual row starts.
@@ -96,8 +109,7 @@ function findSplit(
   segments: Segment[],
   cueRows: number,
   available: number,
-  minRows: number,
-  width: (type: LineType) => number
+  minRows: number
 ): Split | null {
   const rowsAfterSegment: number[] = []
   for (let k = segments.length - 1, sum = 0; k >= 0; k--) {
@@ -112,8 +124,10 @@ function findSplit(
   const consider = (segment: number, at: number, preferred: boolean): void => {
     const { text, type } = segments[segment]
     const rowsBefore =
-      rowsBeforeSegment + (at > 0 ? wrappedLineCount(text.slice(0, at).trimEnd(), width(type)) : 0)
-    const rowsAfter = wrappedLineCount(text.slice(at), width(type)) + rowsAfterSegment[segment]
+      rowsBeforeSegment +
+      (at > 0 ? wrappedLineCount(text.slice(0, at).trimEnd(), columnWidth(type)) : 0)
+    const rowsAfter =
+      wrappedLineCount(text.slice(at), columnWidth(type)) + rowsAfterSegment[segment]
     if (rowsBefore > available || rowsBefore - cueRows < minRows || rowsAfter < minRows) return
     if (best && bestPreferred && !preferred) return
     if (best && bestPreferred === preferred && best.rowsBefore >= rowsBefore) return
@@ -130,7 +144,7 @@ function findSplit(
       for (const match of segment.text.matchAll(sentenceEnd)) {
         consider(k, match.index + match[0].length, true)
       }
-      for (const start of rowStarts(segment.text, width(segment.type)).slice(1)) {
+      for (const start of rowStarts(segment.text, columnWidth(segment.type)).slice(1)) {
         consider(k, start, false)
       }
     }
@@ -153,8 +167,7 @@ function continuedCue(cue: string): string {
 
 export function paginate(lines: string[], types: LineType[]): Pagination {
   const breaks: PageBreak[] = []
-  const width = (type: LineType): number => columnWidth[type] ?? defaultWidth
-  const height = (i: number): number => wrappedLineCount(lines[i], width(types[i]))
+  const height = (i: number): number => wrappedLineCount(lines[i], columnWidth(types[i]))
 
   // The title page is a page of its own and isn't numbered.
   let start = 0
@@ -204,7 +217,7 @@ export function paginate(lines: string[], types: LineType[]): Pagination {
 
       // One row is needed for (MORE). At the top of a page anything goes, so it always fits.
       const atTop = used === 0
-      const split = findSplit(segments, cueRows, LINES_PER_PAGE - used - 1, atTop ? 1 : 2, width)
+      const split = findSplit(segments, cueRows, LINES_PER_PAGE - used - 1, atTop ? 1 : 2)
       if (!split) {
         if (atTop) {
           // A single line taller than a page: nothing sensible to do but let it overflow.
@@ -227,7 +240,7 @@ export function paginate(lines: string[], types: LineType[]): Pagination {
           ...segment,
           offset: segment.offset + split.at,
           text: rest,
-          rows: wrappedLineCount(rest, width(segment.type))
+          rows: wrappedLineCount(rest, columnWidth(segment.type))
         },
         ...segments.slice(split.segment + 1)
       ]
@@ -282,8 +295,6 @@ export function paginate(lines: string[], types: LineType[]): Pagination {
   return { breaks, remaining: Math.max(0, LINES_PER_PAGE - used) }
 }
 
-const explicitSceneNumber = /#([^#\s][^#]*)#\s*$/
-
 // Scene number for each scene heading line: the explicit "#12#" number if present,
 // otherwise the next number in sequence.
 export function sceneNumbers(lines: string[], types: LineType[]): Map<number, string> {
@@ -292,7 +303,7 @@ export function sceneNumbers(lines: string[], types: LineType[]): Map<number, st
   types.forEach((type, i) => {
     if (type !== 'scene-heading') return
     count++
-    numbers.set(i, explicitSceneNumber.exec(lines[i])?.[1].trim() ?? String(count))
+    numbers.set(i, sceneNumber.exec(lines[i])?.[1].trim() ?? String(count))
   })
   return numbers
 }

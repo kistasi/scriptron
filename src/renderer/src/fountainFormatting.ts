@@ -1,10 +1,13 @@
 import { type Extension, type Range, StateField, type Text } from '@codemirror/state'
 import { Decoration, type DecorationSet, EditorView, WidgetType } from '@codemirror/view'
 import { classifyLines, inlineRanges, type InlineStyle, type LineType } from './lib/fountainLines'
-import { paginate, sceneNumbers } from './lib/screenplayLayout'
+import { elementIndents, page, paginate, sceneNumbers } from './lib/screenplayLayout'
 
-const pageGap = '24px'
-const lineHeight = '12pt'
+// CSS pixels: 96 per inch, and 12pt type at 6 lines per inch is 16px per line.
+const pixelsPerInch = 96
+const lineHeight = 16
+const pageGap = 24
+const inches = (value: number): string => `${value}in`
 
 // Ends one page and starts the next: (MORE) if a speech continues, the unused lines and
 // bottom margin, a gap, the top margin with the page number, and the (CONT'D) cue.
@@ -57,7 +60,8 @@ class PageBreakWidget extends WidgetType {
 
   get estimatedHeight(): number {
     const lines = this.remaining + (this.continued ? 2 : 0)
-    return lines * 16 + (this.page === null ? 0 : 2 * 96 + parseInt(pageGap))
+    const margins = (page.top + page.bottom) * pixelsPerInch
+    return lines * lineHeight + (this.page === null ? 0 : margins + pageGap)
   }
 }
 
@@ -125,8 +129,20 @@ const formatting = StateField.define<DecorationSet>({
   provide: (field) => EditorView.decorations.from(field)
 })
 
-// US Letter screenplay layout: 1.5in left / 1in right page margins, 6in text column.
-// Element indents are measured from the left edge of the text column.
+// Page breaks span the full page width: negative margins undo the page margins, and for
+// breaks inside a dialogue or parenthetical line also that element's indents.
+function breakMargin(indent = { left: 0, right: 0 }): string {
+  return `0 ${inches(-(page.right + indent.right))} 0 ${inches(-(page.left + indent.left))}`
+}
+
+const elementStyles = Object.fromEntries(
+  Object.entries(elementIndents).flatMap(([type, indent]) => [
+    [`.fl-${type}`, { paddingLeft: inches(indent.left), paddingRight: inches(indent.right) }],
+    [`.fl-${type} .fl-break`, { margin: breakMargin(indent) }]
+  ])
+)
+
+// The page and element geometry comes from screenplayLayout, so that it matches pagination.
 const screenplayTheme = EditorView.theme({
   '&': { height: '100%' },
   '&.cm-focused': { outline: 'none' },
@@ -137,12 +153,12 @@ const screenplayTheme = EditorView.theme({
     fontFamily: "'Courier Prime', Courier, monospace",
     fontSize: '12pt',
     // 6 lines per inch, as on a printed page, so pagination matches what is shown.
-    lineHeight
+    lineHeight: `${lineHeight}px`
   },
   '.cm-content': {
-    flex: '0 1 8.5in',
+    flex: `0 1 ${inches(page.width)}`,
     boxSizing: 'border-box',
-    padding: '1in 1in 1in 1.5in',
+    padding: [page.top, page.right, page.bottom, page.left].map(inches).join(' '),
     background: '#fff',
     caretColor: '#000'
   },
@@ -157,11 +173,9 @@ const screenplayTheme = EditorView.theme({
   '.fl-scene-heading[data-scene]::before': { right: 'calc(100% + 0.5in)' },
   '.fl-scene-heading[data-scene]::after': { left: 'calc(100% + 0.4in)' },
 
-  // Page breaks span the full page width: negative margins undo the page margins, and
-  // for breaks inside a dialogue or parenthetical line also that element's indents.
   '.fl-break': {
     display: 'block',
-    margin: '0 -1in 0 -1.5in',
+    margin: breakMargin(),
     background: '#fff',
     color: '#000',
     fontWeight: 'normal',
@@ -169,21 +183,21 @@ const screenplayTheme = EditorView.theme({
     textAlign: 'left',
     textTransform: 'none'
   },
-  '.fl-dialogue .fl-break': { margin: '0 -2.5in' },
-  '.fl-parenthetical .fl-break': { margin: '0 -3in 0 -3.1in' },
   // --remaining is set per widget: the unused lines at the bottom of the page.
-  '.fl-break-fill': { height: `calc(var(--remaining) * ${lineHeight})` },
+  '.fl-break-fill': { height: `calc(var(--remaining) * ${lineHeight}px)` },
   '.fl-break-page .fl-break-fill': {
-    height: `calc(var(--remaining) * ${lineHeight} + 1in)`
+    height: `calc(var(--remaining) * ${lineHeight}px + ${inches(page.bottom)})`
   },
-  '.fl-break-gap': { height: pageGap, background: '#eceae6' },
-  '.fl-break-top': { position: 'relative', height: '1in' },
-  '.fl-break-number': { position: 'absolute', top: '0.5in', right: '1in' },
-  // (MORE) and (CONT'D) sit at the character cue indent: 1.5in page margin + 2.2in.
-  '.fl-break-cue': { paddingLeft: '3.7in' },
-  '.fl-character': { paddingLeft: '2.2in' },
-  '.fl-parenthetical': { paddingLeft: '1.6in', paddingRight: '2in' },
-  '.fl-dialogue': { paddingLeft: '1in', paddingRight: '1.5in' },
+  '.fl-break-gap': { height: `${pageGap}px`, background: '#eceae6' },
+  '.fl-break-top': { position: 'relative', height: inches(page.top) },
+  '.fl-break-number': {
+    position: 'absolute',
+    top: inches(page.top / 2),
+    right: inches(page.right)
+  },
+  // (MORE) and (CONT'D) sit at the character cue indent.
+  '.fl-break-cue': { paddingLeft: inches(page.left + (elementIndents.character?.left ?? 0)) },
+  ...elementStyles,
   '.fl-transition': { textAlign: 'right' },
   '.fl-centered': { textAlign: 'center' },
   '.fl-title-page': { color: '#555' },
