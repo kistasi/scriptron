@@ -17,7 +17,9 @@ import App from './App'
 interface EditorProps {
   initialText: string
   fontSize: number
+  textChecking: { spelling: boolean; grammar: boolean; dictionary: readonly string[] }
   onChange: (text: string) => void
+  onLearnWord: (word: string) => void
   onCursorLine: (line: number) => void
   ref: React.Ref<{ goToLine: (line: number) => void; openSearch: () => void }>
 }
@@ -76,7 +78,10 @@ beforeEach(() => {
     exportPdf: vi.fn(),
     getSettings: vi.fn(() => Promise.resolve(defaultSettings)),
     updateSettings: vi.fn(),
-    onSettingsChanged: vi.fn((callback) => ((settingsChanged = callback), () => {}))
+    onSettingsChanged: vi.fn((callback) => ((settingsChanged = callback), () => {})),
+    textCheckAvailable: vi.fn(() => Promise.resolve(true)),
+    checkText: vi.fn(),
+    showTextMenu: vi.fn()
   }
   window.api = api as unknown as Api
   render(<App />)
@@ -293,6 +298,48 @@ describe('App', () => {
       expect(editor.fontSize).toBe(16)
       // The editor is reconfigured, not remounted.
       expect(editor.mounts).toBe(1)
+    })
+
+    it('turns spelling and grammar checking on and off', async () => {
+      await act(async () => {})
+      expect(editor.textChecking).toEqual({ spelling: true, grammar: true, dictionary: [] })
+
+      command('open-settings')
+      fireEvent.click(screen.getByRole('checkbox', { name: 'Check grammar' }))
+      expect(api.updateSettings).toHaveBeenLastCalledWith({ checkGrammar: false })
+      changeSettings({ checkGrammar: false })
+      expect(editor.textChecking).toEqual({ spelling: true, grammar: false, dictionary: [] })
+    })
+
+    it('adds words to the dictionary and removes them', async () => {
+      await act(async () => {})
+      command('open-settings')
+      fireEvent.change(screen.getByRole('textbox', { name: 'New word' }), {
+        target: { value: ' Jaxxon  Zorg ' }
+      })
+      fireEvent.click(screen.getByRole('button', { name: 'Add' }))
+      expect(api.updateSettings).toHaveBeenLastCalledWith({ dictionary: ['Jaxxon', 'Zorg'] })
+
+      changeSettings({ dictionary: ['Jaxxon', 'Zorg'] })
+      expect(editor.textChecking.dictionary).toEqual(['Jaxxon', 'Zorg'])
+      fireEvent.click(screen.getByRole('button', { name: 'Remove Jaxxon' }))
+      expect(api.updateSettings).toHaveBeenLastCalledWith({ dictionary: ['Zorg'] })
+    })
+
+    it('adds words learned in the editor to the dictionary', () => {
+      changeSettings({ dictionary: ['Zorg'] })
+      act(() => editor.onLearnWord('Jaxxon'))
+      expect(api.updateSettings).toHaveBeenLastCalledWith({ dictionary: ['Zorg', 'Jaxxon'] })
+    })
+
+    it('hides spelling and grammar where the system has no checker', async () => {
+      cleanup()
+      api.textCheckAvailable.mockResolvedValue(false)
+      render(<App />)
+      await act(async () => {})
+      expect(editor.textChecking).toEqual({ spelling: false, grammar: false, dictionary: [] })
+      command('open-settings')
+      expect(screen.queryByText('Spelling and Grammar')).toBeNull()
     })
   })
 })

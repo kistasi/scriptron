@@ -32,8 +32,24 @@ function validated(values: Record<string, unknown>, base: Settings): Settings {
   return {
     appearance: pick(values.appearance, appearances, base.appearance),
     uiFontSize: pick(values.uiFontSize, uiFontSizes, base.uiFontSize),
-    editorFontSize: pick(values.editorFontSize, editorFontSizes, base.editorFontSize)
+    editorFontSize: pick(values.editorFontSize, editorFontSizes, base.editorFontSize),
+    checkSpelling:
+      typeof values.checkSpelling === 'boolean' ? values.checkSpelling : base.checkSpelling,
+    checkGrammar:
+      typeof values.checkGrammar === 'boolean' ? values.checkGrammar : base.checkGrammar,
+    dictionary: Array.isArray(values.dictionary)
+      ? dictionaryWords(values.dictionary)
+      : base.dictionary
   }
+}
+
+// Single words, without duplicates, in alphabetical order.
+export function dictionaryWords(values: unknown[]): string[] {
+  const words = values
+    .filter((value): value is string => typeof value === 'string')
+    .map((word) => word.trim())
+    .filter((word) => word && word.length <= 100 && !/\s/.test(word))
+  return [...new Set(words)].sort((a, b) => a.localeCompare(b))
 }
 
 export const getSettings = (): Settings => settings

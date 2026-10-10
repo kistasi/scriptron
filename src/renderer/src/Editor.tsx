@@ -9,6 +9,7 @@ import { fountainFormatting } from './fountainFormatting'
 import { insertPageBreak, isCentered, toggleCentered } from './lineFormats'
 import { screenplayKeys } from './screenplayKeys'
 import { screenplaySearch } from './search'
+import { textCheck, type TextCheckConfig, textCheckSettings } from './textCheck'
 import { Toolbar, type ToolbarCommand } from './Toolbar'
 
 export interface EditorHandle {
@@ -22,7 +23,11 @@ interface EditorProps {
   initialText: string
   // Text size in points.
   fontSize: number
+  // What the operating system's checker underlines.
+  textChecking: TextCheckConfig
   onChange: (text: string) => void
+  // Called with a word the user added to their dictionary from the context menu.
+  onLearnWord: (word: string) => void
   // Called with the cursor's source line (0-based) whenever it may have moved.
   onCursorLine?: (line: number) => void
   ref?: React.Ref<EditorHandle>
@@ -40,21 +45,25 @@ function activeFormats(state: EditorState): Set<ToolbarCommand> {
 export function Editor({
   initialText,
   fontSize,
+  textChecking,
   onChange,
+  onLearnWord,
   onCursorLine,
   ref
 }: EditorProps): React.JSX.Element {
   const hostRef = useRef<HTMLDivElement>(null)
   const viewRef = useRef<EditorView | null>(null)
   const formatting = useRef(new Compartment())
+  const checking = useRef(new Compartment())
   // Read when the editor mounts; later changes reconfigure it below.
   const initialFontSize = useRef(fontSize)
-  const callbacks = useRef({ onChange, onCursorLine })
+  const initialTextChecking = useRef(textChecking)
+  const callbacks = useRef({ onChange, onLearnWord, onCursorLine })
   const [active, setActive] = useState<Set<ToolbarCommand>>(() => new Set())
 
   useEffect(() => {
-    callbacks.current = { onChange, onCursorLine }
-  }, [onChange, onCursorLine])
+    callbacks.current = { onChange, onLearnWord, onCursorLine }
+  }, [onChange, onLearnWord, onCursorLine])
 
   useImperativeHandle(ref, () => ({
     goToLine: (line) => {
@@ -84,6 +93,12 @@ export function Editor({
         screenplayKeys(),
         emphasisKeys(),
         screenplaySearch(),
+        checking.current.of(textCheckSettings(initialTextChecking.current)),
+        textCheck({
+          check: window.api.checkText,
+          showMenu: window.api.showTextMenu,
+          learn: (word) => callbacks.current.onLearnWord(word)
+        }),
         EditorView.updateListener.of((update) => {
           if (update.docChanged) callbacks.current.onChange(update.state.doc.toString())
           if (update.docChanged || update.selectionSet) {
@@ -108,6 +123,13 @@ export function Editor({
       effects: formatting.current.reconfigure(fountainFormatting(fontSize))
     })
   }, [fontSize])
+
+  const { spelling, grammar, dictionary } = textChecking
+  useEffect(() => {
+    viewRef.current?.dispatch({
+      effects: checking.current.reconfigure(textCheckSettings({ spelling, grammar, dictionary }))
+    })
+  }, [spelling, grammar, dictionary])
 
   const runCommand = (command: ToolbarCommand): void => {
     const view = viewRef.current

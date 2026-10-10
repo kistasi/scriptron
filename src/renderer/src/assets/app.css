@@ -51,6 +51,8 @@
   --sidebar-current: #dfe3f5;
   --sidebar-field: #fff;
   --accent: #4a5bd4;
+  --spelling-error: #e5484d;
+  --grammar-error: #2f9e5b;
   --backdrop: rgb(0 0 0 / 0.25);
 }
 
@@ -76,6 +78,8 @@
     --sidebar-current: #26304d;
     --sidebar-field: #1e1e1e;
     --accent: #7d8cf0;
+    --spelling-error: #ff6369;
+    --grammar-error: #4cc38a;
     --backdrop: rgb(0 0 0 / 0.5);
   }
 }
@@ -349,6 +353,83 @@ body {
   margin: 0.4em 0 0;
   color: var(--sidebar-muted);
   font-size: 0.85em;
+}
+
+.settings-section {
+  margin: 1.5em 0 0;
+  font-size: 1em;
+}
+
+.settings-check {
+  display: flex;
+  align-items: center;
+  gap: 0.5em;
+  margin-top: 0.5em;
+}
+
+.settings-check input {
+  margin: 0;
+  accent-color: var(--accent);
+}
+
+.settings-dictionary-add {
+  display: flex;
+  gap: 0.5em;
+  margin-top: 0.5em;
+}
+
+.settings-field {
+  flex: 1;
+  min-width: 0;
+  padding: 0.3em 0.6em;
+  border: 1px solid var(--sidebar-border);
+  border-radius: 8px;
+  background: var(--sidebar-field);
+  color: inherit;
+  font: inherit;
+}
+
+.settings-field:focus-visible,
+.settings-word button:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: -2px;
+}
+
+.settings-words {
+  max-height: 10em;
+  overflow-y: auto;
+  margin: 0.5em 0 0;
+  padding: 0.25em 0;
+  border: 1px solid var(--sidebar-border);
+  border-radius: 8px;
+  background: var(--sidebar-field);
+  list-style: none;
+}
+
+.settings-word {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.1em 0.25em 0.1em 0.6em;
+}
+
+.settings-word:hover {
+  background: var(--sidebar-hover);
+}
+
+.settings-word button {
+  padding: 0 0.4em;
+  border: 0;
+  border-radius: 4px;
+  background: none;
+  color: var(--sidebar-muted);
+  font: inherit;
+  font-size: 1.1em;
+  cursor: pointer;
+}
+
+.settings-word button:hover {
+  color: var(--sidebar-ink);
 }
 
 .settings-buttons {

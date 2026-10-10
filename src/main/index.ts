@@ -10,6 +10,7 @@ import {
   registerSettingsHandlers,
   windowBackground
 } from './settings'
+import { registerTextCheckHandlers } from './textChecker'
 
 function createWindow(): void {
   const mainWindow = new BrowserWindow({
@@ -52,6 +53,7 @@ app.whenReady().then(() => {
   loadSettings()
   registerDocumentHandlers()
   registerSettingsHandlers()
+  registerTextCheckHandlers()
   buildMenu()
   // Keeps the menu's Appearance choice in step with the Settings dialog.
   onSettingsChanged(buildMenu)
