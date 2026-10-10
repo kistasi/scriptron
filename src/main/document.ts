@@ -6,7 +6,7 @@ import { channels, type MenuCommand, type OpenedFile, type SavedFile } from '../
 const fountainFilters = [{ name: 'Fountain', extensions: ['fountain'] }]
 const pdfFilters = [{ name: 'PDF', extensions: ['pdf'] }]
 
-// webContents ids of windows whose document has unsaved changes
+// webContents ids of windows with a document that has unsaved changes
 const dirtyWindows = new Set<number>()
 
 function targetWindow(): BrowserWindow | undefined {
@@ -28,35 +28,42 @@ function confirmDiscard(window: BrowserWindow): boolean {
   return choice === 0
 }
 
+// Asks whether to close a tab whose document has unsaved changes; true to close it.
+async function confirmClose(window: BrowserWindow, name: string): Promise<boolean> {
+  const { response } = await dialog.showMessageBox(window, {
+    type: 'warning',
+    message: `“${name}” has unsaved changes.`,
+    detail: 'Your changes will be lost if you close it.',
+    buttons: ['Discard Changes', 'Cancel'],
+    defaultId: 1,
+    cancelId: 1
+  })
+  return response === 0
+}
+
 export function sendMenuCommand(command: MenuCommand): void {
   targetWindow()?.webContents.send(channels.menuCommand, command)
 }
 
-export function newDocument(): void {
-  const window = targetWindow()
-  if (!window || !confirmDiscard(window)) return
-  window.webContents.send(channels.menuCommand, 'new' satisfies MenuCommand)
-}
-
+// Opens the chosen files, each in a tab of its own.
 export async function openDocument(): Promise<void> {
   const window = targetWindow()
-  if (!window || !confirmDiscard(window)) return
+  if (!window) return
 
   const { canceled, filePaths } = await dialog.showOpenDialog(window, {
     title: 'Open Screenplay',
-    properties: ['openFile'],
+    properties: ['openFile', 'multiSelections'],
     filters: fountainFilters
   })
-  if (canceled || filePaths.length === 0) return
+  if (canceled) return
 
-  await sendFile(window, filePaths[0], false)
+  for (const path of filePaths) await sendFile(window, path, false)
 }
 
 // Opens a bundled sample as an untitled copy, so saving asks for a location.
 export async function openSample(path: string): Promise<void> {
   const window = targetWindow()
-  if (!window || !confirmDiscard(window)) return
-  await sendFile(window, path, true)
+  if (window) await sendFile(window, path, true)
 }
 
 // Reads the file and sends it to the renderer, detached from its path when untitled.
@@ -128,6 +135,11 @@ export function registerDocumentHandlers(): void {
   ipcMain.handle(channels.exportPdf, (event, name: string) => {
     const window = BrowserWindow.fromWebContents(event.sender)
     return window ? exportPdf(window, name) : false
+  })
+
+  ipcMain.handle(channels.confirmClose, (event, name: string) => {
+    const window = BrowserWindow.fromWebContents(event.sender)
+    return window ? confirmClose(window, name) : false
   })
 
   ipcMain.on(channels.setDirty, (event, dirty: boolean) => {

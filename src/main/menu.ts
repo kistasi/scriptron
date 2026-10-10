@@ -1,6 +1,6 @@
 import { Menu, MenuItemConstructorOptions, app } from 'electron'
 import { appearances } from '../shared/ipc'
-import { newDocument, openDocument, openSample, sendMenuCommand } from './document'
+import { openDocument, openSample, sendMenuCommand } from './document'
 import { samples } from './samples'
 import { getSettings, updateSettings } from './settings'
 
@@ -37,7 +37,7 @@ export function buildMenu(): void {
     {
       label: 'File',
       submenu: [
-        { label: 'New', accelerator: 'CmdOrCtrl+N', click: () => newDocument() },
+        { label: 'New', accelerator: 'CmdOrCtrl+N', click: () => sendMenuCommand('new') },
         { label: 'Open…', accelerator: 'CmdOrCtrl+O', click: () => openDocument() },
         {
           label: 'Open Sample',
@@ -60,8 +60,19 @@ export function buildMenu(): void {
           click: () => sendMenuCommand('export-pdf')
         },
         { type: 'separator' },
-        ...(isMac ? [] : [settingsItem, { type: 'separator' } as MenuItemConstructorOptions]),
-        isMac ? { role: 'close' } : { role: 'quit' }
+        {
+          label: 'Close Tab',
+          accelerator: 'CmdOrCtrl+W',
+          click: () => sendMenuCommand('close-tab')
+        },
+        ...((isMac
+          ? [{ role: 'close', label: 'Close Window', accelerator: 'Shift+Cmd+W' }]
+          : [
+              { type: 'separator' },
+              settingsItem,
+              { type: 'separator' },
+              { role: 'quit' }
+            ]) as MenuItemConstructorOptions[])
       ]
     },
     {
@@ -107,6 +118,18 @@ export function buildMenu(): void {
           label: 'Toggle Sidebar',
           accelerator: isMac ? 'Ctrl+Cmd+S' : 'Ctrl+Alt+S',
           click: () => sendMenuCommand('toggle-sidebar')
+        },
+        { type: 'separator' },
+        // Ctrl+Tab and Ctrl+Shift+Tab also switch tabs; the renderer handles those.
+        {
+          label: 'Show Next Tab',
+          accelerator: isMac ? 'Shift+Cmd+]' : 'Ctrl+PageDown',
+          click: () => sendMenuCommand('next-tab')
+        },
+        {
+          label: 'Show Previous Tab',
+          accelerator: isMac ? 'Shift+Cmd+[' : 'Ctrl+PageUp',
+          click: () => sendMenuCommand('previous-tab')
         },
         { type: 'separator' },
         { role: 'reload' },

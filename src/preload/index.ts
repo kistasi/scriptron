@@ -24,6 +24,8 @@ const api = {
   saveFile: (content: string, path: string | null, name: string): Promise<SavedFile | null> =>
     ipcRenderer.invoke(channels.saveFile, content, path, name),
   setDirty: (dirty: boolean): void => ipcRenderer.send(channels.setDirty, dirty),
+  // Asks whether to close the named document and lose its unsaved changes.
+  confirmClose: (name: string): Promise<boolean> => ipcRenderer.invoke(channels.confirmClose, name),
   // Prints the window's print view to a PDF. Resolves to false if cancelled or failed.
   exportPdf: (name: string): Promise<boolean> => ipcRenderer.invoke(channels.exportPdf, name),
   getSettings: (): Promise<Settings> => ipcRenderer.invoke(channels.getSettings),

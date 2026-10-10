@@ -13,7 +13,16 @@ export interface SavedFile {
 }
 
 export type MenuCommand =
-  'new' | 'save' | 'save-as' | 'export-pdf' | 'find' | 'toggle-sidebar' | 'open-settings'
+  | 'new'
+  | 'save'
+  | 'save-as'
+  | 'export-pdf'
+  | 'find'
+  | 'toggle-sidebar'
+  | 'open-settings'
+  | 'close-tab'
+  | 'next-tab'
+  | 'previous-tab'
 
 export type Appearance = 'system' | 'light' | 'dark'
 
@@ -52,8 +61,11 @@ export const channels = {
   // renderer → main (invoke) with the suggested file name; prints the window to a PDF the user
   // chooses, resolves to whether it was written
   exportPdf: 'file:export-pdf',
-  // renderer → main, with whether the document has unsaved changes
+  // renderer → main, with whether any open document has unsaved changes
   setDirty: 'document:dirty',
+  // renderer → main (invoke) with the name of a document with unsaved changes; asks whether to
+  // close it anyway, resolves to true to close it
+  confirmClose: 'document:confirm-close',
   // renderer → main (invoke), resolves to the Settings
   getSettings: 'settings:get',
   // renderer → main, with a Partial<Settings> to change

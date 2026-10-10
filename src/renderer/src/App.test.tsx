@@ -11,33 +11,40 @@ import {
 } from '../../shared/ipc'
 import App from './App'
 
-// The real editor needs a browser layout engine; this stand-in shows the loaded text, exposes
-// onChange and onCursorLine so tests can type and move the cursor, and records goToLine and
-// openSearch calls.
+// The real editor needs a browser layout engine; this stand-in records the props of each mounted
+// editor (one per tab), exposes onChange and onCursorLine so tests can type and move the cursor,
+// and records goToLine and openSearch calls, the latter with the editor's initial text.
 interface EditorProps {
   initialText: string
   fontSize: number
   checkSpelling: boolean
+  visible: boolean
   onChange: (text: string) => void
   onCursorLine: (line: number) => void
   ref: React.Ref<{ goToLine: (line: number) => void; openSearch: () => void }>
 }
-let editor: Omit<EditorProps, 'ref'> & { mounts: number }
+let editors: Map<number, Omit<EditorProps, 'ref'>>
+let mounts: number
 const goToLine = vi.fn()
 const openSearch = vi.fn()
 vi.mock('./Editor', async () => {
-  const { useEffect, useImperativeHandle } = await import('react')
+  const { useEffect, useImperativeHandle, useState } = await import('react')
   return {
     Editor: ({ ref, ...props }: EditorProps) => {
-      editor = { ...props, mounts: editor?.mounts ?? 0 }
-      useImperativeHandle(ref, () => ({ goToLine, openSearch }))
-      useEffect(() => {
-        editor.mounts++
-      }, [])
+      const [n] = useState(() => mounts++)
+      editors.set(n, props)
+      useImperativeHandle(ref, () => ({
+        goToLine,
+        openSearch: () => openSearch(props.initialText)
+      }))
+      useEffect(() => () => void editors.delete(n), [n])
       return null
     }
   }
 })
+
+// The editor of the shown tab.
+const editor = (): Omit<EditorProps, 'ref'> => [...editors.values()].find((e) => e.visible)!
 
 // jsdom doesn't lay out, so there is nothing to scroll.
 Element.prototype.scrollIntoView = () => {}
@@ -54,18 +61,22 @@ function pendingSave(): (result: SavedFile | null) => Promise<void> {
   return (result) => act(async () => resolve(result))
 }
 
-const type = (text: string): void => act(() => editor.onChange(text))
+const type = (text: string): void => act(() => editor().onChange(text))
 const command = (name: MenuCommand): void => act(() => menuCommand(name))
 const open = (file: OpenedFile): void => act(() => fileOpened(file))
 const isDirty = (): boolean => api.setDirty.mock.lastCall?.[0]
 
 const bigFish = { path: '/scripts/Big Fish.fountain', name: 'Big Fish.fountain' }
 
+const tabNames = (): string[] => screen.queryAllByRole('tab').map((tab) => tab.textContent ?? '')
+const selectedTab = (): string | null => screen.getByRole('tab', { selected: true }).textContent
+
 const sceneTitles = (): string[] =>
   screen.queryAllByRole('listitem').map((item) => item.textContent ?? '')
 
 beforeEach(() => {
-  editor = undefined as never
+  editors = new Map()
+  mounts = 0
   goToLine.mockClear()
   openSearch.mockClear()
   localStorage.clear()
@@ -74,6 +85,7 @@ beforeEach(() => {
     onMenuCommand: vi.fn((callback) => ((menuCommand = callback), () => {})),
     saveFile: vi.fn(),
     setDirty: vi.fn(),
+    confirmClose: vi.fn(),
     exportPdf: vi.fn(),
     getSettings: vi.fn(() => Promise.resolve(defaultSettings)),
     updateSettings: vi.fn(),
@@ -88,7 +100,7 @@ afterEach(cleanup)
 describe('App', () => {
   it('starts with a clean untitled document', () => {
     expect(document.title).toBe('Untitled — scriptron')
-    expect(editor.initialText).toBe('')
+    expect(editor().initialText).toBe('')
     expect(isDirty()).toBe(false)
   })
 
@@ -102,21 +114,24 @@ describe('App', () => {
     expect(isDirty()).toBe(false)
   })
 
-  it('loads an opened file into a fresh editor', () => {
+  it('opens a file in a new tab, keeping the edited document in its own', () => {
     type('unsaved')
     open({ ...bigFish, content: 'EXT. RIVER' })
 
-    expect(editor.initialText).toBe('EXT. RIVER')
-    expect(editor.mounts).toBe(2)
+    expect(tabNames()).toEqual(['Untitled', 'Big Fish'])
+    expect(selectedTab()).toBe('Big Fish')
+    expect(editor().initialText).toBe('EXT. RIVER')
     expect(document.title).toBe('Big Fish.fountain — scriptron')
-    expect(isDirty()).toBe(false)
+    // The window still has unsaved changes, in the other tab.
+    expect(isDirty()).toBe(true)
   })
 
-  it('starts a new document on the New command', () => {
+  it('starts a new document in a new tab on the New command', () => {
     open({ ...bigFish, content: 'EXT. RIVER' })
     command('new')
 
-    expect(editor.initialText).toBe('')
+    expect(tabNames()).toEqual(['Big Fish', 'Untitled'])
+    expect(editor().initialText).toBe('')
     expect(document.title).toBe('Untitled — scriptron')
   })
 
@@ -130,7 +145,7 @@ describe('App', () => {
     await finish(bigFish)
     expect(isDirty()).toBe(false)
     // Saving keeps the editor (and its undo history and cursor).
-    expect(editor.mounts).toBe(2)
+    expect(mounts).toBe(2)
   })
 
   it('asks for a location when saving an untitled document, then uses its name', async () => {
@@ -175,7 +190,7 @@ describe('App', () => {
     expect(isDirty()).toBe(true)
   })
 
-  it('ignores a save that finishes after another document was loaded', async () => {
+  it('applies a save to its own tab when another tab is shown by the time it finishes', async () => {
     type('old document')
     const finish = pendingSave()
     command('save')
@@ -183,9 +198,108 @@ describe('App', () => {
     open({ path: '/scripts/Other.fountain', name: 'Other.fountain', content: 'EXT. RIVER' })
     await finish(bigFish)
 
-    // Neither the saved name nor the saved text is applied to the newly opened file.
+    expect(tabNames()).toEqual(['Big Fish', 'Other'])
     expect(document.title).toBe('Other.fountain — scriptron')
     expect(isDirty()).toBe(false)
+  })
+
+  describe('tabs', () => {
+    const other = { path: '/scripts/Other.fountain', name: 'Other.fountain' }
+
+    it('opens a file in place of the blank untitled tab', () => {
+      open({ ...bigFish, content: 'EXT. RIVER' })
+      expect(tabNames()).toEqual(['Big Fish'])
+    })
+
+    it('shows a file that is already open rather than opening it twice', () => {
+      open({ ...bigFish, content: 'EXT. RIVER' })
+      open({ ...other, content: 'INT. HOUSE' })
+      open({ ...bigFish, content: 'EXT. RIVER' })
+
+      expect(tabNames()).toEqual(['Big Fish', 'Other'])
+      expect(selectedTab()).toBe('Big Fish')
+    })
+
+    it('switches tabs when one is clicked, keeping each editor and its text', () => {
+      open({ ...bigFish, content: 'EXT. RIVER' })
+      open({ ...other, content: 'INT. HOUSE' })
+      type('INT. HOUSE - DAY')
+      fireEvent.click(screen.getByRole('tab', { name: 'Big Fish' }))
+
+      expect(editor().initialText).toBe('EXT. RIVER')
+      expect(document.title).toBe('Big Fish.fountain — scriptron')
+      expect(mounts).toBe(3)
+
+      fireEvent.click(screen.getByRole('tab', { name: 'Other' }))
+      expect(document.title).toBe('• Other.fountain — scriptron')
+      expect(mounts).toBe(3)
+    })
+
+    it('outlines the shown tab, and sends Find and scene jumps to its editor', () => {
+      open({ ...bigFish, content: 'EXT. RIVER - DAY' })
+      open({ ...other, content: 'INT. HOUSE - DAY\n\nEXT. GARDEN - DAY' })
+      expect(sceneTitles()).toEqual(['1. INT. HOUSE - DAY', '2. EXT. GARDEN - DAY'])
+
+      command('previous-tab')
+      expect(sceneTitles()).toEqual(['1. EXT. RIVER - DAY'])
+      command('find')
+      expect(openSearch).toHaveBeenCalledWith('EXT. RIVER - DAY')
+    })
+
+    it('cycles through the tabs from the menu and with Ctrl+Tab', () => {
+      open({ ...bigFish, content: '' })
+      open({ ...other, content: '' })
+      command('new')
+
+      command('next-tab')
+      expect(selectedTab()).toBe('Big Fish')
+      command('previous-tab')
+      expect(selectedTab()).toBe('Untitled')
+
+      fireEvent.keyDown(window, { key: 'Tab', ctrlKey: true })
+      expect(selectedTab()).toBe('Big Fish')
+      fireEvent.keyDown(window, { key: 'Tab', ctrlKey: true, shiftKey: true })
+      expect(selectedTab()).toBe('Untitled')
+    })
+
+    it('opens a new tab from its button, numbering untitled documents', () => {
+      fireEvent.click(screen.getByRole('button', { name: 'New Document' }))
+      expect(tabNames()).toEqual(['Untitled', 'Untitled 2'])
+      expect(selectedTab()).toBe('Untitled 2')
+    })
+
+    it('closes a clean tab without asking, showing its neighbour', async () => {
+      open({ ...bigFish, content: '' })
+      open({ ...other, content: '' })
+      await act(async () => fireEvent.click(screen.getByRole('button', { name: 'Close Other' })))
+
+      expect(api.confirmClose).not.toHaveBeenCalled()
+      expect(tabNames()).toEqual(['Big Fish'])
+      expect(document.title).toBe('Big Fish.fountain — scriptron')
+    })
+
+    it('asks before closing a tab with unsaved changes', async () => {
+      open({ ...bigFish, content: '' })
+      type('edited')
+
+      api.confirmClose.mockResolvedValueOnce(false)
+      await act(async () => menuCommand('close-tab'))
+      expect(api.confirmClose).toHaveBeenCalledWith('Big Fish.fountain')
+      expect(tabNames()).toEqual(['Big Fish'])
+
+      api.confirmClose.mockResolvedValueOnce(true)
+      await act(async () => menuCommand('close-tab'))
+      // Closing the last tab leaves a new untitled one.
+      expect(tabNames()).toEqual(['Untitled'])
+      expect(isDirty()).toBe(false)
+    })
+
+    it('marks tabs with unsaved changes', () => {
+      type('edited')
+      expect(screen.getByRole('tab', { name: 'Untitled' }).parentElement?.className).toContain(
+        'tab-dirty'
+      )
+    })
   })
 
   it('exports a PDF of the print view, titled after the screenplay', async () => {
@@ -222,7 +336,7 @@ describe('App', () => {
 
     it('highlights the scene the cursor is in', () => {
       open({ ...bigFish, content: script })
-      act(() => editor.onCursorLine(6))
+      act(() => editor().onCursorLine(6))
       expect(screen.getByRole('button', { current: true }).textContent).toBe(
         '2. EXT. RIVER - NIGHT'
       )
@@ -291,18 +405,18 @@ describe('App', () => {
 
       expect(screen.getByRole<HTMLInputElement>('radio', { name: 'Light' }).checked).toBe(true)
       expect(document.documentElement.style.getPropertyValue('--ui-font-size')).toBe('18px')
-      expect(editor.fontSize).toBe(16)
+      expect(editor().fontSize).toBe(16)
       // The editor is reconfigured, not remounted.
-      expect(editor.mounts).toBe(1)
+      expect(mounts).toBe(1)
     })
 
     it('turns spell checking on and off', () => {
-      expect(editor.checkSpelling).toBe(true)
+      expect(editor().checkSpelling).toBe(true)
       command('open-settings')
       fireEvent.click(screen.getByRole('checkbox', { name: 'Check spelling while typing' }))
       expect(api.updateSettings).toHaveBeenLastCalledWith({ checkSpelling: false })
       changeSettings({ checkSpelling: false })
-      expect(editor.checkSpelling).toBe(false)
+      expect(editor().checkSpelling).toBe(false)
     })
 
     it('adds words to the dictionary and removes them', async () => {

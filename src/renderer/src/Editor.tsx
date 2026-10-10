@@ -25,6 +25,8 @@ interface EditorProps {
   fontSize: number
   // Whether misspellings are underlined.
   checkSpelling: boolean
+  // Whether this is the shown tab; the others stay mounted but hidden, keeping their history.
+  visible: boolean
   onChange: (text: string) => void
   // Called with the cursor's source line (0-based) whenever it may have moved.
   onCursorLine?: (line: number) => void
@@ -44,6 +46,7 @@ export function Editor({
   initialText,
   fontSize,
   checkSpelling,
+  visible,
   onChange,
   onCursorLine,
   ref
@@ -103,12 +106,20 @@ export function Editor({
     })
     viewRef.current = view
     setActive(activeFormats(view.state))
-    view.focus()
     return () => {
       viewRef.current = null
       view.destroy()
     }
   }, [initialText])
+
+  // Runs after the editor is created, so a new tab's editor is focused too.
+  useEffect(() => {
+    const view = viewRef.current
+    if (!visible || !view) return
+    // It couldn't measure its layout while hidden.
+    view.requestMeasure()
+    view.focus()
+  }, [visible])
 
   useEffect(() => {
     viewRef.current?.dispatch({
@@ -131,7 +142,7 @@ export function Editor({
   }
 
   return (
-    <div className="editor-pane">
+    <div className="editor-pane" hidden={!visible}>
       <Toolbar active={active} onCommand={runCommand} />
       <div ref={hostRef} className="editor" />
     </div>

@@ -49,6 +49,7 @@ const electron = vi.hoisted(() => {
       },
       dialog: {
         showMessageBoxSync: vi.fn(),
+        showMessageBox: vi.fn(),
         showOpenDialog: vi.fn(),
         showSaveDialog: vi.fn(),
         showErrorBox: vi.fn()
@@ -171,18 +172,17 @@ describe('unsaved changes', () => {
   })
 })
 
-describe('new document', () => {
-  it('tells the renderer to start a new document', () => {
-    document.newDocument()
-    expect(window.webContents.send).toHaveBeenCalledWith(channels.menuCommand, 'new')
-  })
+describe('closing a tab', () => {
+  it('asks before closing a document with unsaved changes', async () => {
+    dialog.showMessageBox.mockResolvedValue({ response: cancelChoice })
+    expect(await fromRenderer(channels.confirmClose, 'Big Fish.fountain')).toBe(false)
+    expect(dialog.showMessageBox).toHaveBeenCalledWith(
+      window,
+      expect.objectContaining({ message: '“Big Fish.fountain” has unsaved changes.' })
+    )
 
-  it('keeps the current document if the user cancels discarding changes', () => {
-    fromRenderer(channels.setDirty, true)
-    dialog.showMessageBoxSync.mockReturnValue(cancelChoice)
-
-    document.newDocument()
-    expect(window.webContents.send).not.toHaveBeenCalled()
+    dialog.showMessageBox.mockResolvedValue({ response: discardChoice })
+    expect(await fromRenderer(channels.confirmClose, 'Big Fish.fountain')).toBe(true)
   })
 })
 
@@ -206,12 +206,19 @@ describe('opening', () => {
     expect(window.webContents.send).not.toHaveBeenCalled()
   })
 
-  it('does not show the open dialog if the user keeps unsaved changes', async () => {
+  it('sends each of several chosen files, without asking about unsaved changes', async () => {
+    const paths = [join(dir, 'One.fountain'), join(dir, 'Two.fountain')]
+    await writeFile(paths[0], 'one')
+    await writeFile(paths[1], 'two')
+    dialog.showOpenDialog.mockResolvedValue({ canceled: false, filePaths: paths })
     fromRenderer(channels.setDirty, true)
-    dialog.showMessageBoxSync.mockReturnValue(cancelChoice)
 
     await document.openDocument()
-    expect(dialog.showOpenDialog).not.toHaveBeenCalled()
+    expect(dialog.showMessageBoxSync).not.toHaveBeenCalled()
+    expect(window.webContents.send.mock.calls).toEqual([
+      [channels.fileOpened, { path: paths[0], name: 'One.fountain', content: 'one' }],
+      [channels.fileOpened, { path: paths[1], name: 'Two.fountain', content: 'two' }]
+    ])
   })
 
   it('reports a file that cannot be read', async () => {
@@ -238,16 +245,6 @@ describe('opening a sample', () => {
       name: 'Big-Fish.fountain',
       content: 'EXT. RIVER - DAY'
     })
-  })
-
-  it('keeps the current document if the user cancels discarding changes', async () => {
-    const path = join(dir, 'Big-Fish.fountain')
-    await writeFile(path, 'EXT. RIVER - DAY')
-    fromRenderer(channels.setDirty, true)
-    dialog.showMessageBoxSync.mockReturnValue(cancelChoice)
-
-    await document.openSample(path)
-    expect(window.webContents.send).not.toHaveBeenCalled()
   })
 })
 
