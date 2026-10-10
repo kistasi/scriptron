@@ -9,8 +9,6 @@ import {
 
 interface SettingsDialogProps {
   settings: Settings
-  // Whether the operating system can check spelling and grammar (macOS only).
-  textCheckAvailable: boolean
   onChange: (changes: Partial<Settings>) => void
   onClose: () => void
 }
@@ -20,7 +18,6 @@ const capitalized = (text: string): string => text[0].toUpperCase() + text.slice
 // Changes apply as soon as they are made; there is nothing to confirm.
 export function SettingsDialog({
   settings,
-  textCheckAvailable,
   onChange,
   onClose
 }: SettingsDialogProps): React.JSX.Element {
@@ -113,7 +110,7 @@ export function SettingsDialog({
           always use 12 pt.
         </p>
 
-        {textCheckAvailable && <SpellingSettings settings={settings} onChange={onChange} />}
+        <SpellingSettings settings={settings} onChange={onChange} />
 
         <div className="settings-buttons">
           <button type="button" className="settings-button" onClick={onClose}>
@@ -130,7 +127,7 @@ interface SpellingSettingsProps {
   onChange: (changes: Partial<Settings>) => void
 }
 
-// The checker's switches, and the user's dictionary, which the main process keeps tidy.
+// The spellchecker's switch, and the user's dictionary, which the main process keeps tidy.
 function SpellingSettings({ settings, onChange }: SpellingSettingsProps): React.JSX.Element {
   const [newWord, setNewWord] = useState('')
   const words = newWord.trim().split(/\s+/).filter(Boolean)
@@ -144,7 +141,7 @@ function SpellingSettings({ settings, onChange }: SpellingSettingsProps): React.
 
   return (
     <>
-      <h3 className="settings-section">Spelling and Grammar</h3>
+      <h3 className="settings-section">Spelling</h3>
       <label className="settings-check">
         <input
           type="checkbox"
@@ -153,20 +150,12 @@ function SpellingSettings({ settings, onChange }: SpellingSettingsProps): React.
         />
         Check spelling while typing
       </label>
-      <label className="settings-check">
-        <input
-          type="checkbox"
-          checked={settings.checkGrammar}
-          onChange={(event) => onChange({ checkGrammar: event.target.checked })}
-        />
-        Check grammar
-      </label>
 
       <h3 className="settings-section" id="dictionary-label">
         Dictionary
       </h3>
       <p className="settings-hint">
-        Words added here are never marked as misspelled, on top of the system dictionary.
+        English and Hungarian are checked. Words added here are never marked as misspelled.
         Characters&apos; names are accepted automatically.
       </p>
       <form className="settings-dictionary-add" onSubmit={addWords}>

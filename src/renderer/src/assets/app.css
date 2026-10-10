@@ -51,8 +51,6 @@
   --sidebar-current: #dfe3f5;
   --sidebar-field: #fff;
   --accent: #4a5bd4;
-  --spelling-error: #e5484d;
-  --grammar-error: #2f9e5b;
   --backdrop: rgb(0 0 0 / 0.25);
 }
 
@@ -78,8 +76,6 @@
     --sidebar-current: #26304d;
     --sidebar-field: #1e1e1e;
     --accent: #7d8cf0;
-    --spelling-error: #ff6369;
-    --grammar-error: #4cc38a;
     --backdrop: rgb(0 0 0 / 0.5);
   }
 }

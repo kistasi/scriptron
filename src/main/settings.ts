@@ -35,8 +35,6 @@ function validated(values: Record<string, unknown>, base: Settings): Settings {
     editorFontSize: pick(values.editorFontSize, editorFontSizes, base.editorFontSize),
     checkSpelling:
       typeof values.checkSpelling === 'boolean' ? values.checkSpelling : base.checkSpelling,
-    checkGrammar:
-      typeof values.checkGrammar === 'boolean' ? values.checkGrammar : base.checkGrammar,
     dictionary: Array.isArray(values.dictionary)
       ? dictionaryWords(values.dictionary)
       : base.dictionary

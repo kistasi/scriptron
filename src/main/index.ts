@@ -10,7 +10,7 @@ import {
   registerSettingsHandlers,
   windowBackground
 } from './settings'
-import { registerTextCheckHandlers } from './textChecker'
+import { attachContextMenu, setUpSpellchecker } from './spellcheck'
 
 function createWindow(): void {
   const mainWindow = new BrowserWindow({
@@ -26,6 +26,7 @@ function createWindow(): void {
   })
 
   guardUnsavedChanges(mainWindow)
+  attachContextMenu(mainWindow)
 
   mainWindow.on('ready-to-show', () => {
     mainWindow.show()
@@ -53,7 +54,7 @@ app.whenReady().then(() => {
   loadSettings()
   registerDocumentHandlers()
   registerSettingsHandlers()
-  registerTextCheckHandlers()
+  setUpSpellchecker()
   buildMenu()
   // Keeps the menu's Appearance choice in step with the Settings dialog.
   onSettingsChanged(buildMenu)

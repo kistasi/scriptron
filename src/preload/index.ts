@@ -4,11 +4,7 @@ import {
   type MenuCommand,
   type OpenedFile,
   type SavedFile,
-  type Settings,
-  type TextCheckOptions,
-  type TextIssue,
-  type TextMenuAction,
-  type TextMenuIssue
+  type Settings
 } from '../shared/ipc'
 
 // Subscribes to a main → renderer channel; returns a function that unsubscribes.
@@ -35,15 +31,7 @@ const api = {
   updateSettings: (changes: Partial<Settings>): void =>
     ipcRenderer.send(channels.updateSettings, changes),
   onSettingsChanged: (callback: (settings: Settings) => void): (() => void) =>
-    subscribe(channels.settingsChanged, callback),
-  // Whether the operating system's spelling and grammar checker is available (macOS only).
-  textCheckAvailable: (): Promise<boolean> => ipcRenderer.invoke(channels.textCheckAvailable),
-  // Checks each text separately, resolving to its issues.
-  checkText: (texts: string[], options: TextCheckOptions): Promise<TextIssue[][]> =>
-    ipcRenderer.invoke(channels.checkText, texts, options),
-  // Shows the editor's context menu, with suggestions for the issue under the pointer if any.
-  showTextMenu: (issue: TextMenuIssue | null): Promise<TextMenuAction> =>
-    ipcRenderer.invoke(channels.showTextMenu, issue)
+    subscribe(channels.settingsChanged, callback)
 }
 
 export type Api = typeof api

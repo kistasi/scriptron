@@ -3,7 +3,6 @@ import { appearances } from '../shared/ipc'
 import { newDocument, openDocument, openSample, sendMenuCommand } from './document'
 import { samples } from './samples'
 import { getSettings, updateSettings } from './settings'
-import { textCheckAvailable } from './textChecker'
 
 export function buildMenu(): void {
   const isMac = process.platform === 'darwin'
@@ -79,29 +78,20 @@ export function buildMenu(): void {
         { role: 'selectAll' },
         { type: 'separator' },
         { label: 'Find…', accelerator: 'CmdOrCtrl+F', click: () => sendMenuCommand('find') },
-        ...((textCheckAvailable()
-          ? [
-              {
-                label: 'Spelling and Grammar',
-                submenu: [
-                  {
-                    label: 'Check Spelling While Typing',
-                    type: 'checkbox',
-                    checked: getSettings().checkSpelling,
-                    click: () => updateSettings({ checkSpelling: !getSettings().checkSpelling })
-                  },
-                  {
-                    label: 'Check Grammar With Spelling',
-                    type: 'checkbox',
-                    checked: getSettings().checkGrammar,
-                    click: () => updateSettings({ checkGrammar: !getSettings().checkGrammar })
-                  },
-                  { type: 'separator' },
-                  { label: 'Edit Dictionary…', click: () => sendMenuCommand('open-settings') }
-                ]
-              }
-            ]
-          : []) as MenuItemConstructorOptions[]),
+        { type: 'separator' },
+        {
+          label: 'Spelling',
+          submenu: [
+            {
+              label: 'Check Spelling While Typing',
+              type: 'checkbox',
+              checked: getSettings().checkSpelling,
+              click: () => updateSettings({ checkSpelling: !getSettings().checkSpelling })
+            },
+            { type: 'separator' },
+            { label: 'Edit Dictionary…', click: () => sendMenuCommand('open-settings') }
+          ]
+        },
         ...((isMac
           ? [
               { type: 'separator' },

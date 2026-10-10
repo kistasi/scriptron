@@ -1,4 +1,4 @@
-import React, { useCallback, useDeferredValue, useEffect, useMemo, useRef, useState } from 'react'
+import React, { useDeferredValue, useEffect, useMemo, useRef, useState } from 'react'
 import { flushSync } from 'react-dom'
 import { defaultSettings, type Settings } from '../../shared/ipc'
 import { Editor, type EditorHandle } from './Editor'
@@ -52,7 +52,6 @@ function App(): React.JSX.Element {
   const [cursorLine, setCursorLine] = useState(0)
   const [settings, setSettings] = useState<Settings>(defaultSettings)
   const [settingsOpen, setSettingsOpen] = useState(false)
-  const [textCheckAvailable, setTextCheckAvailable] = useState(false)
   const editorRef = useRef<EditorHandle>(null)
   const dirty = text !== savedText
 
@@ -132,26 +131,6 @@ function App(): React.JSX.Element {
   }, [])
 
   useEffect(() => {
-    window.api.textCheckAvailable().then(setTextCheckAvailable)
-  }, [])
-
-  // Kept stable, so the editor isn't reconfigured on unrelated renders.
-  const textChecking = useMemo(
-    () => ({
-      spelling: textCheckAvailable && settings.checkSpelling,
-      grammar: textCheckAvailable && settings.checkGrammar,
-      dictionary: settings.dictionary
-    }),
-    [textCheckAvailable, settings.checkSpelling, settings.checkGrammar, settings.dictionary]
-  )
-
-  // The main process removes duplicates and sorts the dictionary.
-  const learnWord = useCallback(
-    (word: string) => window.api.updateSettings({ dictionary: [...settings.dictionary, word] }),
-    [settings.dictionary]
-  )
-
-  useEffect(() => {
     document.documentElement.style.setProperty('--ui-font-size', `${settings.uiFontSize}px`)
   }, [settings.uiFontSize])
 
@@ -194,16 +173,14 @@ function App(): React.JSX.Element {
           ref={editorRef}
           initialText={doc.initialText}
           fontSize={settings.editorFontSize}
-          textChecking={textChecking}
+          checkSpelling={settings.checkSpelling}
           onChange={setText}
-          onLearnWord={learnWord}
           onCursorLine={setCursorLine}
         />
       </div>
       {settingsOpen && (
         <SettingsDialog
           settings={settings}
-          textCheckAvailable={textCheckAvailable}
           onChange={window.api.updateSettings}
           onClose={() => setSettingsOpen(false)}
         />
