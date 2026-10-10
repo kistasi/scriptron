@@ -95,7 +95,7 @@ describe('App', () => {
     const finish = pendingSave()
     command('save')
 
-    expect(api.saveFile).toHaveBeenCalledWith('EXT. RIVER - DAY', bigFish.path)
+    expect(api.saveFile).toHaveBeenCalledWith('EXT. RIVER - DAY', bigFish.path, 'Big Fish.fountain')
     await finish(bigFish)
     expect(isDirty()).toBe(false)
     // Saving keeps the editor (and its undo history and cursor).
@@ -107,7 +107,7 @@ describe('App', () => {
     const finish = pendingSave()
     command('save')
 
-    expect(api.saveFile).toHaveBeenCalledWith('text', null)
+    expect(api.saveFile).toHaveBeenCalledWith('text', null, 'Untitled.fountain')
     await finish(bigFish)
     expect(document.title).toBe('Big Fish.fountain — scriptron')
     expect(isDirty()).toBe(false)
@@ -118,7 +118,7 @@ describe('App', () => {
     const finish = pendingSave()
     command('save-as')
 
-    expect(api.saveFile).toHaveBeenCalledWith('text', null)
+    expect(api.saveFile).toHaveBeenCalledWith('text', null, 'Big Fish.fountain')
     await finish({ path: '/scripts/Copy.fountain', name: 'Copy.fountain' })
     expect(document.title).toBe('Copy.fountain — scriptron')
   })

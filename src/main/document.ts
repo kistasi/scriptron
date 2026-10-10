@@ -49,26 +49,38 @@ export async function openDocument(): Promise<void> {
   })
   if (canceled || filePaths.length === 0) return
 
-  const path = filePaths[0]
+  await sendFile(window, filePaths[0], false)
+}
+
+// Opens a bundled sample as an untitled copy, so saving asks for a location.
+export async function openSample(path: string): Promise<void> {
+  const window = targetWindow()
+  if (!window || !confirmDiscard(window)) return
+  await sendFile(window, path, true)
+}
+
+// Reads the file and sends it to the renderer, detached from its path when untitled.
+async function sendFile(window: BrowserWindow, path: string, untitled: boolean): Promise<void> {
   try {
     const content = await readFile(path, 'utf-8')
-    const file: OpenedFile = { path, name: basename(path), content }
+    const file: OpenedFile = { path: untitled ? null : path, name: basename(path), content }
     window.webContents.send(channels.fileOpened, file)
   } catch (error) {
     dialog.showErrorBox('Could not open file', `${path}\n\n${(error as Error).message}`)
   }
 }
 
-// Writes the content to path, or asks for a location first when path is null.
+// Writes the content to path, or asks for a location first (suggesting name) when path is null.
 async function saveDocument(
   window: BrowserWindow,
   content: string,
-  path: string | null
+  path: string | null,
+  name: string
 ): Promise<SavedFile | null> {
   if (!path) {
     const result = await dialog.showSaveDialog(window, {
       title: 'Save Screenplay',
-      defaultPath: 'Untitled.fountain',
+      defaultPath: name,
       filters: fountainFilters
     })
     if (result.canceled || !result.filePath) return null
@@ -108,9 +120,9 @@ async function exportPdf(window: BrowserWindow, name: string): Promise<boolean> 
 }
 
 export function registerDocumentHandlers(): void {
-  ipcMain.handle(channels.saveFile, (event, content: string, path: string | null) => {
+  ipcMain.handle(channels.saveFile, (event, content: string, path: string | null, name: string) => {
     const window = BrowserWindow.fromWebContents(event.sender)
-    return window ? saveDocument(window, content, path) : null
+    return window ? saveDocument(window, content, path, name) : null
   })
 
   ipcMain.handle(channels.exportPdf, (event, name: string) => {

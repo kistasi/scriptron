@@ -94,32 +94,36 @@ afterEach(async () => {
 describe('saving', () => {
   it('writes to the given path without asking', async () => {
     const path = join(dir, 'Big Fish.fountain')
-    const saved = await fromRenderer(channels.saveFile, 'INT. HOUSE', path)
+    const saved = await fromRenderer(channels.saveFile, 'INT. HOUSE', path, 'Big Fish.fountain')
 
     expect(saved).toEqual({ path, name: 'Big Fish.fountain' })
     expect(await readFile(path, 'utf-8')).toBe('INT. HOUSE')
     expect(dialog.showSaveDialog).not.toHaveBeenCalled()
   })
 
-  it('asks where to save when there is no path', async () => {
+  it('asks where to save when there is no path, suggesting the name', async () => {
     const path = join(dir, 'New.fountain')
     dialog.showSaveDialog.mockResolvedValue({ canceled: false, filePath: path })
 
-    expect(await fromRenderer(channels.saveFile, 'text', null)).toEqual({
+    expect(await fromRenderer(channels.saveFile, 'text', null, 'Big-Fish.fountain')).toEqual({
       path,
       name: 'New.fountain'
     })
+    expect(dialog.showSaveDialog).toHaveBeenCalledWith(
+      window,
+      expect.objectContaining({ defaultPath: 'Big-Fish.fountain' })
+    )
     expect(await readFile(path, 'utf-8')).toBe('text')
   })
 
   it('resolves to null when the save dialog is cancelled', async () => {
     dialog.showSaveDialog.mockResolvedValue({ canceled: true, filePath: '' })
-    expect(await fromRenderer(channels.saveFile, 'text', null)).toBeNull()
+    expect(await fromRenderer(channels.saveFile, 'text', null, 'x.fountain')).toBeNull()
   })
 
   it('reports a failed write and resolves to null', async () => {
     const path = join(dir, 'missing', 'x.fountain')
-    expect(await fromRenderer(channels.saveFile, 'text', path)).toBeNull()
+    expect(await fromRenderer(channels.saveFile, 'text', path, 'x.fountain')).toBeNull()
     expect(dialog.showErrorBox).toHaveBeenCalledWith(
       'Could not save file',
       expect.stringContaining(path)
@@ -219,6 +223,30 @@ describe('opening', () => {
       'Could not open file',
       expect.stringContaining(path)
     )
+    expect(window.webContents.send).not.toHaveBeenCalled()
+  })
+})
+
+describe('opening a sample', () => {
+  it('sends it to the renderer as an untitled copy', async () => {
+    const path = join(dir, 'Big-Fish.fountain')
+    await writeFile(path, 'EXT. RIVER - DAY')
+
+    await document.openSample(path)
+    expect(window.webContents.send).toHaveBeenCalledWith(channels.fileOpened, {
+      path: null,
+      name: 'Big-Fish.fountain',
+      content: 'EXT. RIVER - DAY'
+    })
+  })
+
+  it('keeps the current document if the user cancels discarding changes', async () => {
+    const path = join(dir, 'Big-Fish.fountain')
+    await writeFile(path, 'EXT. RIVER - DAY')
+    fromRenderer(channels.setDirty, true)
+    dialog.showMessageBoxSync.mockReturnValue(cancelChoice)
+
+    await document.openSample(path)
     expect(window.webContents.send).not.toHaveBeenCalled()
   })
 })

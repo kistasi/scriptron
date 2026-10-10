@@ -13,9 +13,10 @@ const api = {
     subscribe(channels.fileOpened, callback),
   onMenuCommand: (callback: (command: MenuCommand) => void): (() => void) =>
     subscribe(channels.menuCommand, callback),
-  // Pass path = null to ask the user where to save. Resolves to null if cancelled or failed.
-  saveFile: (content: string, path: string | null): Promise<SavedFile | null> =>
-    ipcRenderer.invoke(channels.saveFile, content, path),
+  // Pass path = null to ask the user where to save, suggesting name. Resolves to null if cancelled
+  // or failed.
+  saveFile: (content: string, path: string | null, name: string): Promise<SavedFile | null> =>
+    ipcRenderer.invoke(channels.saveFile, content, path, name),
   setDirty: (dirty: boolean): void => ipcRenderer.send(channels.setDirty, dirty),
   // Prints the window's print view to a PDF. Resolves to false if cancelled or failed.
   exportPdf: (name: string): Promise<boolean> => ipcRenderer.invoke(channels.exportPdf, name)

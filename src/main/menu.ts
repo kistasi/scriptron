@@ -1,6 +1,7 @@
 import { Menu, MenuItemConstructorOptions, app, nativeTheme } from 'electron'
 import { type Appearance, setAppearance } from './appearance'
-import { newDocument, openDocument, sendMenuCommand } from './document'
+import { newDocument, openDocument, openSample, sendMenuCommand } from './document'
+import { samples } from './samples'
 
 export function buildMenu(): void {
   const isMac = process.platform === 'darwin'
@@ -12,6 +13,13 @@ export function buildMenu(): void {
       submenu: [
         { label: 'New', accelerator: 'CmdOrCtrl+N', click: () => newDocument() },
         { label: 'Open…', accelerator: 'CmdOrCtrl+O', click: () => openDocument() },
+        {
+          label: 'Open Sample',
+          submenu: samples.map(({ title, path }) => ({
+            label: title,
+            click: () => openSample(path)
+          }))
+        },
         { type: 'separator' },
         { label: 'Save', accelerator: 'CmdOrCtrl+S', click: () => sendMenuCommand('save') },
         {

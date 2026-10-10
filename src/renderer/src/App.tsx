@@ -50,7 +50,8 @@ function App(): React.JSX.Element {
 
     const save = async (saveAs: boolean): Promise<void> => {
       const { doc, text } = latest.current
-      const saved = await window.api.saveFile(text, saveAs ? null : doc.path)
+      const name = `${baseName(doc.name)}.fountain`
+      const saved = await window.api.saveFile(text, saveAs ? null : doc.path, name)
       if (!saved) return
       // Ignore the result if another document was loaded while the save dialog was open.
       setDoc((current) => (current.id === doc.id ? { ...current, ...saved } : current))
