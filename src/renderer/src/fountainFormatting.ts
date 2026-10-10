@@ -197,8 +197,18 @@ function screenplayTheme(scale: number): Extension {
       margin: '0 auto',
       boxSizing: 'border-box',
       padding: [page.top, page.right, page.bottom, page.left].map(inches).join(' '),
-      background: 'var(--paper)',
+      // Positioned without a z-index, so the paper below can sit under the selection layer.
+      position: 'relative',
       caretColor: 'var(--caret)'
+    },
+    // The paper is painted under the selection layer (z-index -1): a background on .cm-content
+    // itself would cover the selection.
+    '.cm-content::before': {
+      content: "''",
+      position: 'absolute',
+      inset: '0',
+      zIndex: '-2',
+      background: 'var(--paper)'
     },
     // Spaces at the end of a row hang, as in the pagination (CodeMirror's default, break-spaces,
     // would wrap a word whose following space doesn't fit).
