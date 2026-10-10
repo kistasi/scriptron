@@ -1,4 +1,5 @@
 import React, { useEffect, useImperativeHandle, useRef } from 'react'
+import { Compartment } from '@codemirror/state'
 import { EditorView, minimalSetup } from 'codemirror'
 import { fountainFormatting } from './fountainFormatting'
 
@@ -9,6 +10,8 @@ export interface EditorHandle {
 
 interface EditorProps {
   initialText: string
+  // Text size in points.
+  fontSize: number
   onChange: (text: string) => void
   // Called with the cursor's source line (0-based) whenever it may have moved.
   onCursorLine?: (line: number) => void
@@ -19,12 +22,16 @@ interface EditorProps {
 // so give it a new key to load a different document.
 export function Editor({
   initialText,
+  fontSize,
   onChange,
   onCursorLine,
   ref
 }: EditorProps): React.JSX.Element {
   const hostRef = useRef<HTMLDivElement>(null)
   const viewRef = useRef<EditorView | null>(null)
+  const formatting = useRef(new Compartment())
+  // Read when the editor mounts; later changes reconfigure it below.
+  const initialFontSize = useRef(fontSize)
   const callbacks = useRef({ onChange, onCursorLine })
 
   useEffect(() => {
@@ -51,7 +58,7 @@ export function Editor({
       extensions: [
         minimalSetup,
         EditorView.lineWrapping,
-        fountainFormatting(),
+        formatting.current.of(fountainFormatting(initialFontSize.current)),
         EditorView.updateListener.of((update) => {
           if (update.docChanged) callbacks.current.onChange(update.state.doc.toString())
           if (update.docChanged || update.selectionSet) {
@@ -68,6 +75,12 @@ export function Editor({
       view.destroy()
     }
   }, [initialText])
+
+  useEffect(() => {
+    viewRef.current?.dispatch({
+      effects: formatting.current.reconfigure(fountainFormatting(fontSize))
+    })
+  }, [fontSize])
 
   return <div ref={hostRef} className="editor" />
 }

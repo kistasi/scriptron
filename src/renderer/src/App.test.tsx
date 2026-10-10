@@ -2,13 +2,20 @@
 import { act, cleanup, fireEvent, render, screen } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import type { Api } from '../../preload'
-import type { MenuCommand, OpenedFile, SavedFile } from '../../shared/ipc'
+import {
+  defaultSettings,
+  type MenuCommand,
+  type OpenedFile,
+  type SavedFile,
+  type Settings
+} from '../../shared/ipc'
 import App from './App'
 
 // The real editor needs a browser layout engine; this stand-in shows the loaded text, exposes
 // onChange and onCursorLine so tests can type and move the cursor, and records goToLine calls.
 interface EditorProps {
   initialText: string
+  fontSize: number
   onChange: (text: string) => void
   onCursorLine: (line: number) => void
   ref: React.Ref<{ goToLine: (line: number) => void }>
@@ -34,6 +41,7 @@ Element.prototype.scrollIntoView = () => {}
 
 let fileOpened: (file: OpenedFile) => void
 let menuCommand: (command: MenuCommand) => void
+let settingsChanged: (settings: Settings) => void
 let api: { [K in keyof Api]: ReturnType<typeof vi.fn> }
 
 // A save that the test resolves when it chooses, like a save dialog left open.
@@ -62,7 +70,10 @@ beforeEach(() => {
     onMenuCommand: vi.fn((callback) => ((menuCommand = callback), () => {})),
     saveFile: vi.fn(),
     setDirty: vi.fn(),
-    exportPdf: vi.fn()
+    exportPdf: vi.fn(),
+    getSettings: vi.fn(() => Promise.resolve(defaultSettings)),
+    updateSettings: vi.fn(),
+    onSettingsChanged: vi.fn((callback) => ((settingsChanged = callback), () => {}))
   }
   window.api = api as unknown as Api
   render(<App />)
@@ -235,6 +246,44 @@ describe('App', () => {
 
       command('toggle-sidebar')
       expect(screen.queryByRole('complementary')).toBeNull()
+    })
+  })
+  describe('settings', () => {
+    const dialog = (): HTMLElement | null => screen.queryByRole('dialog', { name: 'Settings' })
+    const changeSettings = (changes: Partial<Settings>): void =>
+      act(() => settingsChanged({ ...defaultSettings, ...changes }))
+
+    it('opens from the menu, and closes with Done or Escape', () => {
+      command('open-settings')
+      fireEvent.click(screen.getByRole('button', { name: 'Done' }))
+      expect(dialog()).toBeNull()
+
+      command('open-settings')
+      fireEvent.keyDown(dialog()!, { key: 'Escape' })
+      expect(dialog()).toBeNull()
+    })
+
+    it('sends changes to the main process', () => {
+      command('open-settings')
+      fireEvent.click(screen.getByRole('radio', { name: 'Dark' }))
+      expect(api.updateSettings).toHaveBeenLastCalledWith({ appearance: 'dark' })
+
+      fireEvent.change(screen.getByLabelText('Interface text size'), { target: { value: '16' } })
+      expect(api.updateSettings).toHaveBeenLastCalledWith({ uiFontSize: 16 })
+
+      fireEvent.change(screen.getByLabelText('Screenplay text size'), { target: { value: '14' } })
+      expect(api.updateSettings).toHaveBeenLastCalledWith({ editorFontSize: 14 })
+    })
+
+    it('applies the settings it is sent', () => {
+      command('open-settings')
+      changeSettings({ appearance: 'light', uiFontSize: 18, editorFontSize: 16 })
+
+      expect(screen.getByRole<HTMLInputElement>('radio', { name: 'Light' }).checked).toBe(true)
+      expect(document.documentElement.style.getPropertyValue('--ui-font-size')).toBe('18px')
+      expect(editor.fontSize).toBe(16)
+      // The editor is reconfigured, not remounted.
+      expect(editor.mounts).toBe(1)
     })
   })
 })

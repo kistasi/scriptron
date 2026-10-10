@@ -4,7 +4,12 @@ import { electronApp, optimizer, is } from '@electron-toolkit/utils'
 import icon from '../../resources/icon.png?asset'
 import { guardUnsavedChanges, registerDocumentHandlers } from './document'
 import { buildMenu } from './menu'
-import { loadAppearance, windowBackground } from './appearance'
+import {
+  loadSettings,
+  onSettingsChanged,
+  registerSettingsHandlers,
+  windowBackground
+} from './settings'
 
 function createWindow(): void {
   const mainWindow = new BrowserWindow({
@@ -44,9 +49,12 @@ app.whenReady().then(() => {
     optimizer.watchWindowShortcuts(window)
   })
 
-  loadAppearance()
+  loadSettings()
   registerDocumentHandlers()
+  registerSettingsHandlers()
   buildMenu()
+  // Keeps the menu's Appearance choice in step with the Settings dialog.
+  onSettingsChanged(buildMenu)
   createWindow()
 
   app.on('activate', function () {

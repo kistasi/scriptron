@@ -29,6 +29,8 @@
 
 :root {
   color-scheme: light dark;
+  /* Set from the settings; the sidebar and dialogs are sized in em from it. */
+  --ui-font-size: 14px;
   --desk: #eceae6;
   --paper: #fff;
   --ink: #111;
@@ -48,6 +50,8 @@
   --sidebar-hover: #ebe9e5;
   --sidebar-current: #dfe3f5;
   --sidebar-field: #fff;
+  --accent: #4a5bd4;
+  --backdrop: rgb(0 0 0 / 0.25);
 }
 
 @media (prefers-color-scheme: dark) {
@@ -71,6 +75,8 @@
     --sidebar-hover: #1c1c1c;
     --sidebar-current: #26304d;
     --sidebar-field: #1e1e1e;
+    --accent: #7d8cf0;
+    --backdrop: rgb(0 0 0 / 0.5);
   }
 }
 
@@ -101,13 +107,13 @@ body {
 .sidebar {
   display: flex;
   flex-direction: column;
-  flex: 0 0 300px;
+  flex: 0 0 21.5em;
   min-width: 0;
   background: var(--sidebar);
   color: var(--sidebar-ink);
   border-right: 1px solid var(--sidebar-border);
   font:
-    14px/1.35 system-ui,
+    var(--ui-font-size) / 1.35 system-ui,
     -apple-system,
     sans-serif;
 }
@@ -176,13 +182,13 @@ body {
 
 .sidebar-toggle {
   flex: none;
-  width: 32px;
+  width: 1.8em;
   border: 1px solid var(--sidebar-border);
   border-radius: 8px;
   background: var(--sidebar-field);
   color: var(--sidebar-ink);
   font:
-    18px/1 system-ui,
+    calc(var(--ui-font-size) * 9 / 7) / 1 system-ui,
     -apple-system,
     sans-serif;
   cursor: pointer;
@@ -194,7 +200,110 @@ body {
   left: 8px;
   bottom: 8px;
   z-index: 1;
-  height: 32px;
+  height: 1.8em;
+}
+
+.settings-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 2;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--backdrop);
+}
+
+.settings {
+  box-sizing: border-box;
+  width: 30em;
+  max-width: calc(100vw - 32px);
+  max-height: calc(100vh - 32px);
+  overflow-y: auto;
+  padding: 1.25em 1.5em;
+  border: 1px solid var(--sidebar-border);
+  border-radius: 12px;
+  background: var(--sidebar);
+  color: var(--sidebar-ink);
+  box-shadow: 0 12px 40px rgb(0 0 0 / 0.3);
+  font:
+    var(--ui-font-size) / 1.35 system-ui,
+    -apple-system,
+    sans-serif;
+}
+
+.settings-title {
+  margin: 0 0 1em;
+  font-size: 1.2em;
+}
+
+.settings-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1em;
+  margin-top: 0.75em;
+}
+
+.settings-segments {
+  display: flex;
+  border: 1px solid var(--sidebar-border);
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.settings-segment input {
+  position: absolute;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.settings-segment span {
+  display: block;
+  padding: 0.3em 0.9em;
+  background: var(--sidebar-field);
+  cursor: pointer;
+}
+
+.settings-segment + .settings-segment span {
+  border-left: 1px solid var(--sidebar-border);
+}
+
+.settings-segment input:checked + span {
+  background: var(--sidebar-current);
+}
+
+.settings-segment input:focus-visible + span,
+.settings-select:focus-visible,
+.settings-button:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: -2px;
+}
+
+.settings-select,
+.settings-button {
+  padding: 0.3em 0.6em;
+  border: 1px solid var(--sidebar-border);
+  border-radius: 8px;
+  background: var(--sidebar-field);
+  color: inherit;
+  font: inherit;
+}
+
+.settings-hint {
+  margin: 0.4em 0 0;
+  color: var(--sidebar-muted);
+  font-size: 0.85em;
+}
+
+.settings-buttons {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: 1.5em;
+}
+
+.settings-button {
+  min-width: 6em;
+  cursor: pointer;
 }
 
 /* Exported PDFs are printed from .print, which is only shown when printing. */

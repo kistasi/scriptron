@@ -1,13 +1,39 @@
-import { Menu, MenuItemConstructorOptions, app, nativeTheme } from 'electron'
-import { type Appearance, setAppearance } from './appearance'
+import { Menu, MenuItemConstructorOptions, app } from 'electron'
+import { appearances } from '../shared/ipc'
 import { newDocument, openDocument, openSample, sendMenuCommand } from './document'
 import { samples } from './samples'
+import { getSettings, updateSettings } from './settings'
 
 export function buildMenu(): void {
   const isMac = process.platform === 'darwin'
 
+  const settingsItem: MenuItemConstructorOptions = {
+    label: isMac ? 'Settings…' : 'Preferences…',
+    accelerator: 'CmdOrCtrl+,',
+    click: () => sendMenuCommand('open-settings')
+  }
+
   const template: MenuItemConstructorOptions[] = [
-    ...(isMac ? [{ label: app.name, role: 'appMenu' } as MenuItemConstructorOptions] : []),
+    ...(isMac
+      ? [
+          {
+            label: app.name,
+            submenu: [
+              { role: 'about' },
+              { type: 'separator' },
+              settingsItem,
+              { type: 'separator' },
+              { role: 'services' },
+              { type: 'separator' },
+              { role: 'hide' },
+              { role: 'hideOthers' },
+              { role: 'unhide' },
+              { type: 'separator' },
+              { role: 'quit' }
+            ]
+          } as MenuItemConstructorOptions
+        ]
+      : []),
     {
       label: 'File',
       submenu: [
@@ -34,6 +60,7 @@ export function buildMenu(): void {
           click: () => sendMenuCommand('export-pdf')
         },
         { type: 'separator' },
+        ...(isMac ? [] : [settingsItem, { type: 'separator' } as MenuItemConstructorOptions]),
         isMac ? { role: 'close' } : { role: 'quit' }
       ]
     },
@@ -53,11 +80,11 @@ export function buildMenu(): void {
         { type: 'separator' },
         {
           label: 'Appearance',
-          submenu: (['system', 'light', 'dark'] as Appearance[]).map((appearance) => ({
+          submenu: appearances.map((appearance) => ({
             label: appearance[0].toUpperCase() + appearance.slice(1),
             type: 'radio',
-            checked: nativeTheme.themeSource === appearance,
-            click: () => setAppearance(appearance)
+            checked: getSettings().appearance === appearance,
+            click: () => updateSettings({ appearance })
           }))
         },
         { type: 'separator' },

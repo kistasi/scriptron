@@ -1,5 +1,11 @@
 import { contextBridge, ipcRenderer, IpcRendererEvent } from 'electron'
-import { channels, type MenuCommand, type OpenedFile, type SavedFile } from '../shared/ipc'
+import {
+  channels,
+  type MenuCommand,
+  type OpenedFile,
+  type SavedFile,
+  type Settings
+} from '../shared/ipc'
 
 // Subscribes to a main → renderer channel; returns a function that unsubscribes.
 function subscribe<T>(channel: string, callback: (value: T) => void): () => void {
@@ -19,7 +25,13 @@ const api = {
     ipcRenderer.invoke(channels.saveFile, content, path, name),
   setDirty: (dirty: boolean): void => ipcRenderer.send(channels.setDirty, dirty),
   // Prints the window's print view to a PDF. Resolves to false if cancelled or failed.
-  exportPdf: (name: string): Promise<boolean> => ipcRenderer.invoke(channels.exportPdf, name)
+  exportPdf: (name: string): Promise<boolean> => ipcRenderer.invoke(channels.exportPdf, name),
+  getSettings: (): Promise<Settings> => ipcRenderer.invoke(channels.getSettings),
+  // Saved and applied by the main process, which then sends the result to onSettingsChanged.
+  updateSettings: (changes: Partial<Settings>): void =>
+    ipcRenderer.send(channels.updateSettings, changes),
+  onSettingsChanged: (callback: (settings: Settings) => void): (() => void) =>
+    subscribe(channels.settingsChanged, callback)
 }
 
 export type Api = typeof api

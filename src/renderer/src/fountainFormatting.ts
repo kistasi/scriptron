@@ -1,4 +1,4 @@
-import { type Extension, type Range, StateField, type Text } from '@codemirror/state'
+import { type EditorState, type Extension, Facet, type Range, StateField } from '@codemirror/state'
 import { Decoration, type DecorationSet, EditorView, WidgetType } from '@codemirror/view'
 import { classifyLines, inlineRanges, type InlineStyle, type LineType } from './lib/fountainLines'
 import {
@@ -14,7 +14,10 @@ import {
 const pixelsPerInch = 96
 const lineHeight = 16
 const pageGap = 24
-const inches = (value: number): string => `${value}in`
+
+// The page is shown at actual size with 12pt type. Other text sizes scale the whole page,
+// so that lines wrap and pages break exactly as when printed.
+const baseFontSize = 12
 
 // Ends one page and starts the next: (MORE) if a speech continues, the unused lines and
 // bottom margin, a gap, the top margin with the page number, and the (CONT'D) cue.
@@ -24,6 +27,7 @@ class PageBreakWidget extends WidgetType {
   constructor(
     readonly page: number | null,
     readonly remaining: number,
+    readonly scale: number,
     readonly continued?: string
   ) {
     super()
@@ -33,6 +37,7 @@ class PageBreakWidget extends WidgetType {
     return (
       other.page === this.page &&
       other.remaining === this.remaining &&
+      other.scale === this.scale &&
       other.continued === this.continued
     )
   }
@@ -68,7 +73,10 @@ class PageBreakWidget extends WidgetType {
   get estimatedHeight(): number {
     const lines = this.remaining + (this.continued ? 2 : 0)
     const margins = (page.top + page.bottom) * pixelsPerInch
-    return lines * lineHeight + (this.page === null ? 0 : margins + pageGap)
+    return (
+      (lines * lineHeight + (this.page === null ? 0 : margins)) * this.scale +
+      (this.page === null ? 0 : pageGap)
+    )
   }
 }
 
@@ -92,7 +100,9 @@ const inlineDecorations: Record<InlineStyle, Decoration> = {
 
 // Classification depends on neighbouring lines (blank lines, dialogue blocks, boneyard),
 // so the whole document is reclassified on every change. That is fast for screenplay-sized text.
-function buildDecorations(doc: Text): DecorationSet {
+function buildDecorations(state: EditorState): DecorationSet {
+  const { doc } = state
+  const scale = state.facet(editorFontSize) / baseFontSize
   const lines = doc.toJSON()
   const types = classifyLines(lines)
   const scenes = sceneNumbers(lines, types)
@@ -100,7 +110,7 @@ function buildDecorations(doc: Text): DecorationSet {
 
   const pagination = paginate(lines, types)
   for (const { line, offset, page, remaining, continued } of pagination.breaks) {
-    const widget = new PageBreakWidget(page, remaining, continued)
+    const widget = new PageBreakWidget(page, remaining, scale, continued)
     const position = doc.line(line + 1).from + offset
     decorations.push(
       (offset === 0
@@ -109,7 +119,7 @@ function buildDecorations(doc: Text): DecorationSet {
       ).range(position)
     )
   }
-  const lastPage = new PageBreakWidget(null, pagination.remaining)
+  const lastPage = new PageBreakWidget(null, pagination.remaining, scale)
   decorations.push(Decoration.widget({ widget: lastPage, block: true, side: 1 }).range(doc.length))
 
   for (let n = 1; n <= doc.lines; n++) {
@@ -134,123 +144,149 @@ function buildDecorations(doc: Text): DecorationSet {
   return Decoration.set(decorations, true)
 }
 
+// The editor's text size in points.
+const editorFontSize = Facet.define<number, number>({
+  combine: (values) => values[0] ?? baseFontSize
+})
+
 const formatting = StateField.define<DecorationSet>({
-  create: (state) => buildDecorations(state.doc),
-  update: (decorations, tr) => (tr.docChanged ? buildDecorations(tr.state.doc) : decorations),
+  create: buildDecorations,
+  update: (decorations, tr) =>
+    tr.docChanged || tr.startState.facet(editorFontSize) !== tr.state.facet(editorFontSize)
+      ? buildDecorations(tr.state)
+      : decorations,
   provide: (field) => EditorView.decorations.from(field)
 })
 
-// Page breaks span the full page width: negative margins undo the page margins, and for
-// breaks inside a dialogue or parenthetical line also that element's indents.
-function breakMargin(indent = { left: 0, right: 0 }): string {
-  return `0 ${inches(-(page.right + indent.right))} 0 ${inches(-(page.left + indent.left))}`
-}
-
-const elementStyles = Object.fromEntries(
-  Object.entries(elementIndents).flatMap(([type, indent]) => [
-    [`.fl-${type}`, { paddingLeft: inches(indent.left), paddingRight: inches(indent.right) }],
-    [`.fl-${type} .fl-break`, { margin: breakMargin(indent) }]
-  ])
-)
-
 // The page and element geometry comes from screenplayLayout, so that it matches pagination.
 // Colors are CSS variables from app.css, which switch with the light or dark appearance.
-const screenplayTheme = EditorView.theme({
-  '&': { height: '100%' },
-  '&.cm-focused': { outline: 'none' },
-  '.cm-scroller': {
-    justifyContent: 'center',
-    padding: '24px 16px',
-    background: 'var(--desk)',
-    color: 'var(--ink)',
-    fontFamily: "'Courier Prime', Courier, monospace",
-    fontSize: '12pt',
-    // 6 lines per inch, as on a printed page, so pagination matches what is shown.
-    lineHeight: `${lineHeight}px`
-  },
-  '.cm-content': {
-    // A hair wider than the page: layout rounding must never make a column narrower than its
-    // width in characters, or the browser would wrap lines earlier than the pagination.
-    flex: `0 1 ${inches(page.width + 0.01)}`,
-    boxSizing: 'border-box',
-    padding: [page.top, page.right, page.bottom, page.left].map(inches).join(' '),
-    background: 'var(--paper)',
-    caretColor: 'var(--caret)'
-  },
-  // Spaces at the end of a row hang, as in the pagination (CodeMirror's default, break-spaces,
-  // would wrap a word whose following space doesn't fit).
-  '.cm-content.cm-lineWrapping': { whiteSpace: 'pre-wrap' },
-  '.cm-line': { padding: '0' },
-  '.cm-cursor': { borderLeftColor: 'var(--caret)' },
-  '.cm-selectionBackground': { background: 'var(--selection)' },
-  '&.cm-focused > .cm-scroller > .cm-selectionLayer .cm-selectionBackground': {
-    background: 'var(--selection-focused)'
-  },
+function screenplayTheme(scale: number): Extension {
+  const inches = (value: number): string => `${value * scale}in`
+  const row = `${lineHeight * scale}px`
 
-  ...elementStyles,
-  // Extends the scene heading's indents from elementStyles.
-  '.fl-scene-heading': {
-    ...elementStyles['.fl-scene-heading'],
-    position: 'relative',
-    fontWeight: 'bold',
-    textTransform: 'uppercase'
-  },
-  '.fl-scene-heading[data-scene]::before, .fl-scene-heading[data-scene]::after': {
-    content: 'attr(data-scene)',
-    position: 'absolute',
-    top: '0'
-  },
-  // Scene numbers are positioned from the edges of the line's padding box, which are the
-  // edges of the text column (the heading's right indent is padding).
-  '.fl-scene-heading[data-scene]::before': {
-    left: inches(-(page.left - sceneNumberMargins.left))
-  },
-  '.fl-scene-heading[data-scene]::after': {
-    right: inches(-(page.right - sceneNumberMargins.right))
-  },
-  // An extra blank row above scene headings, except at the top of a page.
-  '.fl-spaced': { paddingTop: `${lineHeight}px` },
-  '.fl-spaced[data-scene]::before, .fl-spaced[data-scene]::after': { top: `${lineHeight}px` },
+  // Page breaks span the full page width: negative margins undo the page margins, and for
+  // breaks inside a dialogue or parenthetical line also that element's indents.
+  const breakMargin = (indent = { left: 0, right: 0 }): string =>
+    `0 ${inches(-(page.right + indent.right))} 0 ${inches(-(page.left + indent.left))}`
 
-  '.fl-break': {
-    display: 'block',
-    margin: breakMargin(),
-    background: 'var(--paper)',
-    color: 'var(--ink)',
-    fontWeight: 'normal',
-    fontStyle: 'normal',
-    textAlign: 'left',
-    textTransform: 'none'
-  },
-  // --remaining is set per widget: the unused lines at the bottom of the page.
-  '.fl-break-fill': { height: `calc(var(--remaining) * ${lineHeight}px)` },
-  '.fl-break-page .fl-break-fill': {
-    height: `calc(var(--remaining) * ${lineHeight}px + ${inches(page.bottom)})`
-  },
-  '.fl-break-gap': { height: `${pageGap}px`, background: 'var(--desk)' },
-  '.fl-break-top': { position: 'relative', height: inches(page.top) },
-  '.fl-break-number': {
-    position: 'absolute',
-    top: inches(pageNumber.top),
-    right: inches(pageNumber.right)
-  },
-  // (MORE) and (CONT'D) sit at the character cue indent.
-  '.fl-break-cue': { paddingLeft: inches(page.left + (elementIndents.character?.left ?? 0)) },
-  '.fl-transition': { textAlign: 'right' },
-  '.fl-centered': { textAlign: 'center' },
-  '.fl-title-page': { color: 'var(--title-page)' },
-  '.fl-section': { color: 'var(--section)' },
-  '.fl-synopsis': { color: 'var(--synopsis)', fontStyle: 'italic' },
-  '.fl-note, .fl-inline-note': { color: 'var(--note)' },
-  '.fl-boneyard': { color: 'var(--boneyard)' },
-  '.fl-page-break': { color: 'var(--boneyard)' },
+  const elementStyles = Object.fromEntries(
+    Object.entries(elementIndents).flatMap(([type, indent]) => [
+      [`.fl-${type}`, { paddingLeft: inches(indent.left), paddingRight: inches(indent.right) }],
+      [`.fl-${type} .fl-break`, { margin: breakMargin(indent) }]
+    ])
+  )
 
-  '.fl-bold': { fontWeight: 'bold' },
-  '.fl-italic': { fontStyle: 'italic' },
-  '.fl-underline': { textDecoration: 'underline' },
-  '.fl-marker': { color: 'var(--marker)', fontWeight: 'normal', fontStyle: 'normal' }
-})
+  return EditorView.theme({
+    '&': { height: '100%' },
+    '&.cm-focused': { outline: 'none' },
+    '.cm-scroller': {
+      padding: '24px 16px',
+      background: 'var(--desk)',
+      color: 'var(--ink)',
+      fontFamily: "'Courier Prime', Courier, monospace",
+      fontSize: `${baseFontSize * scale}pt`,
+      // 6 lines per inch, as on a printed page, so pagination matches what is shown.
+      lineHeight: row
+    },
+    '.cm-content': {
+      // A hair wider than the page: layout rounding must never make a column narrower than its
+      // width in characters, or the browser would wrap lines earlier than the pagination.
+      // The page never shrinks, which would wrap lines early: a window too narrow for it scrolls
+      // sideways. Auto margins center it while keeping any overflow scrollable.
+      flex: `0 0 calc(${inches(page.width)} + 0.01in)`,
+      margin: '0 auto',
+      boxSizing: 'border-box',
+      padding: [page.top, page.right, page.bottom, page.left].map(inches).join(' '),
+      background: 'var(--paper)',
+      caretColor: 'var(--caret)'
+    },
+    // Spaces at the end of a row hang, as in the pagination (CodeMirror's default, break-spaces,
+    // would wrap a word whose following space doesn't fit).
+    '.cm-content.cm-lineWrapping': { whiteSpace: 'pre-wrap' },
+    '.cm-line': { padding: '0' },
+    '.cm-cursor': { borderLeftColor: 'var(--caret)' },
+    '.cm-selectionBackground': { background: 'var(--selection)' },
+    '&.cm-focused > .cm-scroller > .cm-selectionLayer .cm-selectionBackground': {
+      background: 'var(--selection-focused)'
+    },
 
-export function fountainFormatting(): Extension {
-  return [formatting, screenplayTheme]
+    ...elementStyles,
+    // Extends the scene heading's indents from elementStyles.
+    '.fl-scene-heading': {
+      ...elementStyles['.fl-scene-heading'],
+      position: 'relative',
+      fontWeight: 'bold',
+      textTransform: 'uppercase'
+    },
+    '.fl-scene-heading[data-scene]::before, .fl-scene-heading[data-scene]::after': {
+      content: 'attr(data-scene)',
+      position: 'absolute',
+      top: '0'
+    },
+    // Scene numbers are positioned from the edges of the line's padding box, which are the
+    // edges of the text column (the heading's right indent is padding).
+    '.fl-scene-heading[data-scene]::before': {
+      left: inches(-(page.left - sceneNumberMargins.left))
+    },
+    '.fl-scene-heading[data-scene]::after': {
+      right: inches(-(page.right - sceneNumberMargins.right))
+    },
+    // An extra blank row above scene headings, except at the top of a page.
+    '.fl-spaced': { paddingTop: row },
+    '.fl-spaced[data-scene]::before, .fl-spaced[data-scene]::after': { top: row },
+
+    '.fl-break': {
+      display: 'block',
+      margin: breakMargin(),
+      background: 'var(--paper)',
+      color: 'var(--ink)',
+      fontWeight: 'normal',
+      fontStyle: 'normal',
+      textAlign: 'left',
+      textTransform: 'none'
+    },
+    // --remaining is set per widget: the unused lines at the bottom of the page.
+    '.fl-break-fill': { height: `calc(var(--remaining) * ${row})` },
+    '.fl-break-page .fl-break-fill': {
+      height: `calc(var(--remaining) * ${row} + ${inches(page.bottom)})`
+    },
+    '.fl-break-gap': { height: `${pageGap}px`, background: 'var(--desk)' },
+    '.fl-break-top': { position: 'relative', height: inches(page.top) },
+    '.fl-break-number': {
+      position: 'absolute',
+      top: inches(pageNumber.top),
+      right: inches(pageNumber.right)
+    },
+    // (MORE) and (CONT'D) sit at the character cue indent.
+    '.fl-break-cue': { paddingLeft: inches(page.left + (elementIndents.character?.left ?? 0)) },
+    '.fl-transition': { textAlign: 'right' },
+    '.fl-centered': { textAlign: 'center' },
+    '.fl-title-page': { color: 'var(--title-page)' },
+    '.fl-section': { color: 'var(--section)' },
+    '.fl-synopsis': { color: 'var(--synopsis)', fontStyle: 'italic' },
+    '.fl-note, .fl-inline-note': { color: 'var(--note)' },
+    '.fl-boneyard': { color: 'var(--boneyard)' },
+    '.fl-page-break': { color: 'var(--boneyard)' },
+
+    '.fl-bold': { fontWeight: 'bold' },
+    '.fl-italic': { fontStyle: 'italic' },
+    '.fl-underline': { textDecoration: 'underline' },
+    '.fl-marker': { color: 'var(--marker)', fontWeight: 'normal', fontStyle: 'normal' }
+  })
+}
+
+// EditorView.theme generates new CSS classes on every call, so build each size once.
+const themes = new Map<number, Extension>()
+function cachedTheme(scale: number): Extension {
+  let theme = themes.get(scale)
+  if (!theme) {
+    theme = screenplayTheme(scale)
+    themes.set(scale, theme)
+  }
+  return theme
+}
+
+// fontSize is the text size in points; reconfigure the extension (in a Compartment) to change it.
+export function fountainFormatting(fontSize = baseFontSize): Extension {
+  return [editorFontSize.of(fontSize), formatting, cachedTheme(fontSize / baseFontSize)]
 }

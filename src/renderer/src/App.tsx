@@ -1,7 +1,9 @@
 import React, { useDeferredValue, useEffect, useMemo, useRef, useState } from 'react'
 import { flushSync } from 'react-dom'
+import { defaultSettings, type Settings } from '../../shared/ipc'
 import { Editor, type EditorHandle } from './Editor'
 import { PrintView } from './PrintView'
+import { SettingsDialog } from './SettingsDialog'
 import { Sidebar } from './Sidebar'
 import { outlineScenes, sceneAt } from './lib/outline'
 import { layoutScreenplay, type PrintedScreenplay } from './lib/printLayout'
@@ -48,6 +50,8 @@ function App(): React.JSX.Element {
   const [printed, setPrinted] = useState<PrintedScreenplay | null>(null)
   const [sidebarVisible, setSidebarVisible] = useState(loadSidebarVisible)
   const [cursorLine, setCursorLine] = useState(0)
+  const [settings, setSettings] = useState<Settings>(defaultSettings)
+  const [settingsOpen, setSettingsOpen] = useState(false)
   const editorRef = useRef<EditorHandle>(null)
   const dirty = text !== savedText
 
@@ -103,6 +107,7 @@ function App(): React.JSX.Element {
       if (command === 'new') load(createDocument(null, 'Untitled', ''))
       else if (command === 'export-pdf') exportPdf()
       else if (command === 'toggle-sidebar') setSidebarVisible((visible) => !visible)
+      else if (command === 'open-settings') setSettingsOpen(true)
       else save(command === 'save-as')
     })
 
@@ -111,6 +116,22 @@ function App(): React.JSX.Element {
       unsubscribeMenu()
     }
   }, [])
+
+  useEffect(() => {
+    let changed = false
+    const unsubscribe = window.api.onSettingsChanged((settings) => {
+      changed = true
+      setSettings(settings)
+    })
+    window.api.getSettings().then((settings) => {
+      if (!changed) setSettings(settings)
+    })
+    return unsubscribe
+  }, [])
+
+  useEffect(() => {
+    document.documentElement.style.setProperty('--ui-font-size', `${settings.uiFontSize}px`)
+  }, [settings.uiFontSize])
 
   useEffect(() => {
     try {
@@ -150,10 +171,18 @@ function App(): React.JSX.Element {
           key={doc.id}
           ref={editorRef}
           initialText={doc.initialText}
+          fontSize={settings.editorFontSize}
           onChange={setText}
           onCursorLine={setCursorLine}
         />
       </div>
+      {settingsOpen && (
+        <SettingsDialog
+          settings={settings}
+          onChange={window.api.updateSettings}
+          onClose={() => setSettingsOpen(false)}
+        />
+      )}
       {printed && <PrintView screenplay={printed} />}
     </>
   )
