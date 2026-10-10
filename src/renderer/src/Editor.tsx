@@ -1,9 +1,12 @@
-import React, { useEffect, useImperativeHandle, useRef } from 'react'
-import { Compartment } from '@codemirror/state'
+import React, { useEffect, useImperativeHandle, useRef, useState } from 'react'
+import { Compartment, type EditorState } from '@codemirror/state'
 import { EditorView, minimalSetup } from 'codemirror'
 import { characterCompletion } from './characterCompletion'
+import { activeEmphasis, emphasisKeys, toggleEmphasis } from './emphasis'
 import { fountainFormatting } from './fountainFormatting'
+import { insertPageBreak, isCentered, toggleCentered } from './lineFormats'
 import { screenplayKeys } from './screenplayKeys'
+import { Toolbar, type ToolbarCommand } from './Toolbar'
 
 export interface EditorHandle {
   // Puts the cursor at the start of a source line (0-based) and scrolls it to the top.
@@ -18,6 +21,13 @@ interface EditorProps {
   // Called with the cursor's source line (0-based) whenever it may have moved.
   onCursorLine?: (line: number) => void
   ref?: React.Ref<EditorHandle>
+}
+
+// The formats at the selection, shown as pressed toolbar buttons.
+function activeFormats(state: EditorState): Set<ToolbarCommand> {
+  const active = new Set<ToolbarCommand>(activeEmphasis(state))
+  if (isCentered(state)) active.add('centered')
+  return active
 }
 
 // Uncontrolled: the text is only read from initialText when the editor mounts,
@@ -35,6 +45,7 @@ export function Editor({
   // Read when the editor mounts; later changes reconfigure it below.
   const initialFontSize = useRef(fontSize)
   const callbacks = useRef({ onChange, onCursorLine })
+  const [active, setActive] = useState<Set<ToolbarCommand>>(() => new Set())
 
   useEffect(() => {
     callbacks.current = { onChange, onCursorLine }
@@ -63,16 +74,19 @@ export function Editor({
         formatting.current.of(fountainFormatting(initialFontSize.current)),
         characterCompletion(),
         screenplayKeys(),
+        emphasisKeys(),
         EditorView.updateListener.of((update) => {
           if (update.docChanged) callbacks.current.onChange(update.state.doc.toString())
           if (update.docChanged || update.selectionSet) {
             const { doc, selection } = update.state
             callbacks.current.onCursorLine?.(doc.lineAt(selection.main.head).number - 1)
+            setActive(activeFormats(update.state))
           }
         })
       ]
     })
     viewRef.current = view
+    setActive(activeFormats(view.state))
     view.focus()
     return () => {
       viewRef.current = null
@@ -86,5 +100,19 @@ export function Editor({
     })
   }, [fontSize])
 
-  return <div ref={hostRef} className="editor" />
+  const runCommand = (command: ToolbarCommand): void => {
+    const view = viewRef.current
+    if (!view) return
+    if (command === 'centered') toggleCentered(view)
+    else if (command === 'page-break') insertPageBreak(view)
+    else toggleEmphasis(command)(view)
+    view.focus()
+  }
+
+  return (
+    <div className="editor-pane">
+      <Toolbar active={active} onCommand={runCommand} />
+      <div ref={hostRef} className="editor" />
+    </div>
+  )
 }
