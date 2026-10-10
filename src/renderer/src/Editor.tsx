@@ -3,6 +3,7 @@ import { Compartment } from '@codemirror/state'
 import { EditorView, minimalSetup } from 'codemirror'
 import { characterCompletion } from './characterCompletion'
 import { fountainFormatting } from './fountainFormatting'
+import { screenplayKeys } from './screenplayKeys'
 
 export interface EditorHandle {
   // Puts the cursor at the start of a source line (0-based) and scrolls it to the top.
@@ -61,6 +62,7 @@ export function Editor({
         EditorView.lineWrapping,
         formatting.current.of(fountainFormatting(initialFontSize.current)),
         characterCompletion(),
+        screenplayKeys(),
         EditorView.updateListener.of((update) => {
           if (update.docChanged) callbacks.current.onChange(update.state.doc.toString())
           if (update.docChanged || update.selectionSet) {
