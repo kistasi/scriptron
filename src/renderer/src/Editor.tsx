@@ -1,6 +1,7 @@
 import React, { useEffect, useImperativeHandle, useRef, useState } from 'react'
 import { Compartment, type EditorState } from '@codemirror/state'
 import { EditorView, minimalSetup } from 'codemirror'
+import { autoformat } from './autoformat'
 import { characterCompletion } from './characterCompletion'
 import { activeEmphasis, emphasisKeys, toggleEmphasis } from './emphasis'
 import { fountainFormatting } from './fountainFormatting'
@@ -105,6 +106,7 @@ export function Editor({
     if (!view) return
     if (command === 'centered') toggleCentered(view)
     else if (command === 'page-break') insertPageBreak(view)
+    else if (command === 'autoformat') autoformat(view)
     else toggleEmphasis(command)(view)
     view.focus()
   }

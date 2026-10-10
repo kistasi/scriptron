@@ -1,7 +1,7 @@
 import React from 'react'
 import type { Emphasis } from './emphasis'
 
-export type ToolbarCommand = Emphasis | 'centered' | 'page-break'
+export type ToolbarCommand = Emphasis | 'centered' | 'page-break' | 'autoformat'
 
 const isMac = navigator.platform.startsWith('Mac')
 const mod = isMac ? '⌘' : 'Ctrl+'
@@ -11,7 +11,7 @@ interface ToolbarButton {
   label: string
   shortcut?: string
   glyph: React.ReactNode
-  // Inserts something rather than applying a style, so it is never shown as pressed.
+  // Inserts or changes something rather than applying a style, so it is never shown as pressed.
   action?: boolean
 }
 
@@ -26,6 +26,14 @@ const groups: ToolbarButton[][] = [
   [
     { command: 'centered', label: 'Centered', glyph: '> <' },
     { command: 'page-break', label: 'Page Break', glyph: '===', action: true }
+  ],
+  [
+    {
+      command: 'autoformat',
+      label: 'Autoformat (trim extra spaces and blank lines)',
+      glyph: '¶',
+      action: true
+    }
   ]
 ]
 
