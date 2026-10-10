@@ -1,6 +1,7 @@
 import React, { useEffect, useImperativeHandle, useRef } from 'react'
 import { Compartment } from '@codemirror/state'
 import { EditorView, minimalSetup } from 'codemirror'
+import { characterCompletion } from './characterCompletion'
 import { fountainFormatting } from './fountainFormatting'
 
 export interface EditorHandle {
@@ -59,6 +60,7 @@ export function Editor({
         minimalSetup,
         EditorView.lineWrapping,
         formatting.current.of(fountainFormatting(initialFontSize.current)),
+        characterCompletion(),
         EditorView.updateListener.of((update) => {
           if (update.docChanged) callbacks.current.onChange(update.state.doc.toString())
           if (update.docChanged || update.selectionSet) {
