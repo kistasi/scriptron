@@ -106,6 +106,7 @@ function App(): React.JSX.Element {
     const unsubscribeMenu = window.api.onMenuCommand((command) => {
       if (command === 'new') load(createDocument(null, 'Untitled', ''))
       else if (command === 'export-pdf') exportPdf()
+      else if (command === 'find') editorRef.current?.openSearch()
       else if (command === 'toggle-sidebar') setSidebarVisible((visible) => !visible)
       else if (command === 'open-settings') setSettingsOpen(true)
       else save(command === 'save-as')

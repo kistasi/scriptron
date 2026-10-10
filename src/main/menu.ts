@@ -64,7 +64,28 @@ export function buildMenu(): void {
         isMac ? { role: 'close' } : { role: 'quit' }
       ]
     },
-    { role: 'editMenu' },
+    {
+      label: 'Edit',
+      submenu: [
+        { role: 'undo' },
+        { role: 'redo' },
+        { type: 'separator' },
+        { role: 'cut' },
+        { role: 'copy' },
+        { role: 'paste' },
+        ...(isMac ? [{ role: 'pasteAndMatchStyle' } as MenuItemConstructorOptions] : []),
+        { role: 'delete' },
+        { role: 'selectAll' },
+        { type: 'separator' },
+        { label: 'Find…', accelerator: 'CmdOrCtrl+F', click: () => sendMenuCommand('find') },
+        ...((isMac
+          ? [
+              { type: 'separator' },
+              { label: 'Speech', submenu: [{ role: 'startSpeaking' }, { role: 'stopSpeaking' }] }
+            ]
+          : []) as MenuItemConstructorOptions[])
+      ]
+    },
     {
       label: 'View',
       submenu: [

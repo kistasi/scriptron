@@ -13,7 +13,7 @@ export interface SavedFile {
 }
 
 export type MenuCommand =
-  'new' | 'save' | 'save-as' | 'export-pdf' | 'toggle-sidebar' | 'open-settings'
+  'new' | 'save' | 'save-as' | 'export-pdf' | 'find' | 'toggle-sidebar' | 'open-settings'
 
 export type Appearance = 'system' | 'light' | 'dark'
 

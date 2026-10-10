@@ -12,22 +12,24 @@ import {
 import App from './App'
 
 // The real editor needs a browser layout engine; this stand-in shows the loaded text, exposes
-// onChange and onCursorLine so tests can type and move the cursor, and records goToLine calls.
+// onChange and onCursorLine so tests can type and move the cursor, and records goToLine and
+// openSearch calls.
 interface EditorProps {
   initialText: string
   fontSize: number
   onChange: (text: string) => void
   onCursorLine: (line: number) => void
-  ref: React.Ref<{ goToLine: (line: number) => void }>
+  ref: React.Ref<{ goToLine: (line: number) => void; openSearch: () => void }>
 }
 let editor: Omit<EditorProps, 'ref'> & { mounts: number }
 const goToLine = vi.fn()
+const openSearch = vi.fn()
 vi.mock('./Editor', async () => {
   const { useEffect, useImperativeHandle } = await import('react')
   return {
     Editor: ({ ref, ...props }: EditorProps) => {
       editor = { ...props, mounts: editor?.mounts ?? 0 }
-      useImperativeHandle(ref, () => ({ goToLine }))
+      useImperativeHandle(ref, () => ({ goToLine, openSearch }))
       useEffect(() => {
         editor.mounts++
       }, [])
@@ -64,6 +66,7 @@ const sceneTitles = (): string[] =>
 beforeEach(() => {
   editor = undefined as never
   goToLine.mockClear()
+  openSearch.mockClear()
   localStorage.clear()
   api = {
     onFileOpened: vi.fn((callback) => ((fileOpened = callback), () => {})),
@@ -248,6 +251,12 @@ describe('App', () => {
       expect(screen.queryByRole('complementary')).toBeNull()
     })
   })
+
+  it('opens the editor search from the Find menu item', () => {
+    command('find')
+    expect(openSearch).toHaveBeenCalledOnce()
+  })
+
   describe('settings', () => {
     const dialog = (): HTMLElement | null => screen.queryByRole('dialog', { name: 'Settings' })
     const changeSettings = (changes: Partial<Settings>): void =>

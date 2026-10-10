@@ -1,4 +1,5 @@
 import React, { useEffect, useImperativeHandle, useRef, useState } from 'react'
+import { openSearchPanel } from '@codemirror/search'
 import { Compartment, type EditorState } from '@codemirror/state'
 import { EditorView, minimalSetup } from 'codemirror'
 import { autoformat } from './autoformat'
@@ -7,11 +8,14 @@ import { activeEmphasis, emphasisKeys, toggleEmphasis } from './emphasis'
 import { fountainFormatting } from './fountainFormatting'
 import { insertPageBreak, isCentered, toggleCentered } from './lineFormats'
 import { screenplayKeys } from './screenplayKeys'
+import { screenplaySearch } from './search'
 import { Toolbar, type ToolbarCommand } from './Toolbar'
 
 export interface EditorHandle {
   // Puts the cursor at the start of a source line (0-based) and scrolls it to the top.
   goToLine: (line: number) => void
+  // Opens the find & replace panel, or focuses it if it's already open.
+  openSearch: () => void
 }
 
 interface EditorProps {
@@ -62,6 +66,9 @@ export function Editor({
         effects: EditorView.scrollIntoView(position, { y: 'start', yMargin: 48 })
       })
       view.focus()
+    },
+    openSearch: () => {
+      if (viewRef.current) openSearchPanel(viewRef.current)
     }
   }))
 
@@ -76,6 +83,7 @@ export function Editor({
         characterCompletion(),
         screenplayKeys(),
         emphasisKeys(),
+        screenplaySearch(),
         EditorView.updateListener.of((update) => {
           if (update.docChanged) callbacks.current.onChange(update.state.doc.toString())
           if (update.docChanged || update.selectionSet) {
