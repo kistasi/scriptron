@@ -30,7 +30,7 @@ function isUppercase(text: string): boolean {
 }
 
 // "MÁRK", "MÁRK (CONT'D)", "BOB ^" — the extension in parentheses may be mixed case.
-function isCharacterName(text: string): boolean {
+export function isCharacterName(text: string): boolean {
   const name = text.replace(/\s*\^$/, '').replace(/\s*\(.*\)$/, '')
   return isUppercase(name)
 }
