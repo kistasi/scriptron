@@ -41,6 +41,13 @@
   --note: #3a7a3a;
   --boneyard: #aaa;
   --marker: #bbb;
+  --sidebar: #f6f5f3;
+  --sidebar-ink: #222;
+  --sidebar-muted: #8a8a8a;
+  --sidebar-border: #dcd9d4;
+  --sidebar-hover: #ebe9e5;
+  --sidebar-current: #dfe3f5;
+  --sidebar-field: #fff;
 }
 
 @media (prefers-color-scheme: dark) {
@@ -57,6 +64,13 @@
     --note: #7fbf7f;
     --boneyard: #5f5f5f;
     --marker: #5a5a5a;
+    --sidebar: #000;
+    --sidebar-ink: #e6e6e6;
+    --sidebar-muted: #8c8c8c;
+    --sidebar-border: #2a2a2a;
+    --sidebar-hover: #1c1c1c;
+    --sidebar-current: #26304d;
+    --sidebar-field: #1e1e1e;
   }
 }
 
@@ -72,8 +86,115 @@ body {
   color: var(--ink);
 }
 
-.editor {
+.workspace {
+  display: flex;
   height: 100%;
+}
+
+.editor {
+  flex: 1;
+  min-width: 0;
+  height: 100%;
+}
+
+/* The scene outline on the left, as in Beat. */
+.sidebar {
+  display: flex;
+  flex-direction: column;
+  flex: 0 0 300px;
+  min-width: 0;
+  background: var(--sidebar);
+  color: var(--sidebar-ink);
+  border-right: 1px solid var(--sidebar-border);
+  font:
+    14px/1.35 system-ui,
+    -apple-system,
+    sans-serif;
+}
+
+.sidebar-scenes {
+  flex: 1;
+  overflow-y: auto;
+  margin: 0;
+  padding: 8px 0;
+  list-style: none;
+}
+
+.sidebar-scene {
+  display: block;
+  width: 100%;
+  padding: 5px 16px;
+  border: 0;
+  background: none;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.sidebar-scene:hover {
+  background: var(--sidebar-hover);
+}
+
+.sidebar-scene[aria-current] {
+  background: var(--sidebar-current);
+}
+
+.sidebar-scene-number {
+  color: var(--sidebar-muted);
+}
+
+.sidebar-empty {
+  flex: 1;
+  margin: 0;
+  padding: 16px;
+  color: var(--sidebar-muted);
+}
+
+.sidebar-footer {
+  display: flex;
+  gap: 8px;
+  padding: 8px;
+  border-top: 1px solid var(--sidebar-border);
+}
+
+.sidebar-search {
+  flex: 1;
+  min-width: 0;
+  padding: 6px 12px;
+  border: 1px solid var(--sidebar-border);
+  border-radius: 999px;
+  background: var(--sidebar-field);
+  color: inherit;
+  font: inherit;
+  outline: none;
+}
+
+.sidebar-search:focus {
+  border-color: var(--sidebar-muted);
+}
+
+.sidebar-toggle {
+  flex: none;
+  width: 32px;
+  border: 1px solid var(--sidebar-border);
+  border-radius: 8px;
+  background: var(--sidebar-field);
+  color: var(--sidebar-ink);
+  font:
+    18px/1 system-ui,
+    -apple-system,
+    sans-serif;
+  cursor: pointer;
+}
+
+/* Shown in place of the collapsed sidebar, over the desk. */
+.sidebar-show {
+  position: fixed;
+  left: 8px;
+  bottom: 8px;
+  z-index: 1;
+  height: 32px;
 }
 
 /* Exported PDFs are printed from .print, which is only shown when printing. */
@@ -96,7 +217,7 @@ body {
     background: #fff;
   }
 
-  .editor {
+  .workspace {
     display: none;
   }
 }

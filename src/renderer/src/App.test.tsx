@@ -1,18 +1,26 @@
 // @vitest-environment jsdom
-import { act, cleanup, render } from '@testing-library/react'
+import { act, cleanup, fireEvent, render, screen } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import type { Api } from '../../preload'
 import type { MenuCommand, OpenedFile, SavedFile } from '../../shared/ipc'
 import App from './App'
 
-// The real editor needs a browser layout engine; this stand-in shows the loaded text and
-// exposes onChange so tests can type.
-let editor: { initialText: string; onChange: (text: string) => void; mounts: number }
+// The real editor needs a browser layout engine; this stand-in shows the loaded text, exposes
+// onChange and onCursorLine so tests can type and move the cursor, and records goToLine calls.
+interface EditorProps {
+  initialText: string
+  onChange: (text: string) => void
+  onCursorLine: (line: number) => void
+  ref: React.Ref<{ goToLine: (line: number) => void }>
+}
+let editor: Omit<EditorProps, 'ref'> & { mounts: number }
+const goToLine = vi.fn()
 vi.mock('./Editor', async () => {
-  const { useEffect } = await import('react')
+  const { useEffect, useImperativeHandle } = await import('react')
   return {
-    Editor: (props: { initialText: string; onChange: (text: string) => void }) => {
+    Editor: ({ ref, ...props }: EditorProps) => {
       editor = { ...props, mounts: editor?.mounts ?? 0 }
+      useImperativeHandle(ref, () => ({ goToLine }))
       useEffect(() => {
         editor.mounts++
       }, [])
@@ -20,6 +28,9 @@ vi.mock('./Editor', async () => {
     }
   }
 })
+
+// jsdom doesn't lay out, so there is nothing to scroll.
+Element.prototype.scrollIntoView = () => {}
 
 let fileOpened: (file: OpenedFile) => void
 let menuCommand: (command: MenuCommand) => void
@@ -39,8 +50,13 @@ const isDirty = (): boolean => api.setDirty.mock.lastCall?.[0]
 
 const bigFish = { path: '/scripts/Big Fish.fountain', name: 'Big Fish.fountain' }
 
+const sceneTitles = (): string[] =>
+  screen.queryAllByRole('listitem').map((item) => item.textContent ?? '')
+
 beforeEach(() => {
   editor = undefined as never
+  goToLine.mockClear()
+  localStorage.clear()
   api = {
     onFileOpened: vi.fn((callback) => ((fileOpened = callback), () => {})),
     onMenuCommand: vi.fn((callback) => ((menuCommand = callback), () => {})),
@@ -170,5 +186,55 @@ describe('App', () => {
     await act(async () => finish(true))
     expect(document.querySelector('.print')).toBeNull()
     expect(document.title).toBe('Big Fish.fountain — scriptron')
+  })
+
+  describe('sidebar', () => {
+    const script = 'INT. HOUSE - DAY\n\nAction.\n\nEXT. RIVER - NIGHT\n\nWater.'
+
+    it('lists the scenes, following edits', () => {
+      open({ ...bigFish, content: script })
+      expect(sceneTitles()).toEqual(['1. INT. HOUSE - DAY', '2. EXT. RIVER - NIGHT'])
+
+      type(`${script}\n\nEXT. CAMPFIRE - NIGHT\n\nFire.`)
+      expect(sceneTitles()).toHaveLength(3)
+    })
+
+    it('jumps to a scene when it is clicked', () => {
+      open({ ...bigFish, content: script })
+      fireEvent.click(screen.getByText(/EXT\. RIVER/))
+      expect(goToLine).toHaveBeenCalledWith(4)
+    })
+
+    it('highlights the scene the cursor is in', () => {
+      open({ ...bigFish, content: script })
+      act(() => editor.onCursorLine(6))
+      expect(screen.getByRole('button', { current: true }).textContent).toBe(
+        '2. EXT. RIVER - NIGHT'
+      )
+    })
+
+    it('filters scenes by search, and jumps to the first match on Enter', () => {
+      open({ ...bigFish, content: script })
+      const search = screen.getByRole('searchbox', { name: 'Search scenes' })
+      fireEvent.change(search, { target: { value: 'night' } })
+      expect(sceneTitles()).toEqual(['2. EXT. RIVER - NIGHT'])
+
+      fireEvent.keyDown(search, { key: 'Enter' })
+      expect(goToLine).toHaveBeenCalledWith(4)
+
+      fireEvent.keyDown(search, { key: 'Escape' })
+      expect(sceneTitles()).toHaveLength(2)
+    })
+
+    it('collapses and expands, from its button and the menu', () => {
+      fireEvent.click(screen.getByRole('button', { name: 'Hide Sidebar' }))
+      expect(screen.queryByRole('complementary')).toBeNull()
+
+      fireEvent.click(screen.getByRole('button', { name: 'Show Sidebar' }))
+      expect(screen.getByRole('complementary', { name: 'Scenes' })).toBeTruthy()
+
+      command('toggle-sidebar')
+      expect(screen.queryByRole('complementary')).toBeNull()
+    })
   })
 })

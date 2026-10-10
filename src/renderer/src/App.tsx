@@ -1,7 +1,9 @@
-import React, { useEffect, useRef, useState } from 'react'
+import React, { useDeferredValue, useEffect, useMemo, useRef, useState } from 'react'
 import { flushSync } from 'react-dom'
-import { Editor } from './Editor'
+import { Editor, type EditorHandle } from './Editor'
 import { PrintView } from './PrintView'
+import { Sidebar } from './Sidebar'
+import { outlineScenes, sceneAt } from './lib/outline'
 import { layoutScreenplay, type PrintedScreenplay } from './lib/printLayout'
 
 interface Document {
@@ -23,6 +25,17 @@ const printFonts = ['', 'bold ', 'italic ', 'bold italic '].map(
 // "Big Fish.fountain" → "Big Fish"
 const baseName = (name: string): string => name.replace(/\.fountain$/i, '')
 
+// Whether the sidebar is shown is remembered per machine; storage may be unavailable.
+const sidebarKey = 'sidebar-visible'
+
+function loadSidebarVisible(): boolean {
+  try {
+    return localStorage.getItem(sidebarKey) !== 'false'
+  } catch {
+    return true
+  }
+}
+
 function createDocument(path: string | null, name: string, text: string): Document {
   return { id: nextDocumentId++, path, name, initialText: text }
 }
@@ -33,7 +46,15 @@ function App(): React.JSX.Element {
   const [savedText, setSavedText] = useState('')
   // Set while exporting a PDF: the screenplay laid out for printing.
   const [printed, setPrinted] = useState<PrintedScreenplay | null>(null)
+  const [sidebarVisible, setSidebarVisible] = useState(loadSidebarVisible)
+  const [cursorLine, setCursorLine] = useState(0)
+  const editorRef = useRef<EditorHandle>(null)
   const dirty = text !== savedText
+
+  // Deferred so that typing isn't slowed down by re-outlining long screenplays.
+  const outlinedText = useDeferredValue(text)
+  const scenes = useMemo(() => outlineScenes(outlinedText.split('\n')), [outlinedText])
+  const currentScene = sceneAt(scenes, cursorLine)
 
   // Menu commands arrive outside React's render cycle and need the latest values.
   const latest = useRef({ doc, text })
@@ -46,6 +67,7 @@ function App(): React.JSX.Element {
       setDoc(newDoc)
       setText(newDoc.initialText)
       setSavedText(newDoc.initialText)
+      setCursorLine(0)
     }
 
     const save = async (saveAs: boolean): Promise<void> => {
@@ -80,6 +102,7 @@ function App(): React.JSX.Element {
     const unsubscribeMenu = window.api.onMenuCommand((command) => {
       if (command === 'new') load(createDocument(null, 'Untitled', ''))
       else if (command === 'export-pdf') exportPdf()
+      else if (command === 'toggle-sidebar') setSidebarVisible((visible) => !visible)
       else save(command === 'save-as')
     })
 
@@ -90,13 +113,47 @@ function App(): React.JSX.Element {
   }, [])
 
   useEffect(() => {
+    try {
+      localStorage.setItem(sidebarKey, String(sidebarVisible))
+    } catch {
+      // Not remembered, which is fine.
+    }
+  }, [sidebarVisible])
+
+  useEffect(() => {
     window.api.setDirty(dirty)
     document.title = `${dirty ? '• ' : ''}${doc.name} — scriptron`
   }, [dirty, doc.name])
 
   return (
     <>
-      <Editor key={doc.id} initialText={doc.initialText} onChange={setText} />
+      <div className="workspace">
+        {sidebarVisible ? (
+          <Sidebar
+            scenes={scenes}
+            current={currentScene}
+            onSelect={(scene) => editorRef.current?.goToLine(scene.line)}
+            onCollapse={() => setSidebarVisible(false)}
+          />
+        ) : (
+          <button
+            type="button"
+            className="sidebar-toggle sidebar-show"
+            title="Show Sidebar"
+            aria-label="Show Sidebar"
+            onClick={() => setSidebarVisible(true)}
+          >
+            ›
+          </button>
+        )}
+        <Editor
+          key={doc.id}
+          ref={editorRef}
+          initialText={doc.initialText}
+          onChange={setText}
+          onCursorLine={setCursorLine}
+        />
+      </div>
       {printed && <PrintView screenplay={printed} />}
     </>
   )

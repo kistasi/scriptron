@@ -41,6 +41,12 @@ export function buildMenu(): void {
     {
       label: 'View',
       submenu: [
+        {
+          label: 'Toggle Sidebar',
+          accelerator: isMac ? 'Ctrl+Cmd+S' : 'Ctrl+Alt+S',
+          click: () => sendMenuCommand('toggle-sidebar')
+        },
+        { type: 'separator' },
         { role: 'reload' },
         { role: 'forceReload' },
         { role: 'toggleDevTools' },

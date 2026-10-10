@@ -12,7 +12,7 @@ export interface SavedFile {
   name: string
 }
 
-export type MenuCommand = 'new' | 'save' | 'save-as' | 'export-pdf'
+export type MenuCommand = 'new' | 'save' | 'save-as' | 'export-pdf' | 'toggle-sidebar'
 
 export const channels = {
   // main → renderer, with an OpenedFile
