@@ -1,10 +1,11 @@
 import { Prec, type Extension } from '@codemirror/state'
 import { type EditorView, keymap } from '@codemirror/view'
 import { classifyLines, isCharacterName } from './lib/fountainLines'
+import { uppercaseHeading } from './lib/sceneHeadings'
 
 // Like Beat: Enter at the end of a speech, a scene heading or an action line also adds the blank
-// line Fountain needs after it, so the next element can be typed right away. Shift-Enter adds a
-// single line.
+// line Fountain needs after it, so the next element can be typed right away, and puts a scene
+// heading in capitals. Shift-Enter adds a single line.
 export function endBlock(view: EditorView): boolean {
   const { state } = view
   const { main } = state.selection
@@ -27,7 +28,15 @@ export function endBlock(view: EditorView): boolean {
     return false
   }
 
-  view.dispatch(state.replaceSelection('\n\n'), { scrollIntoView: true, userEvent: 'input' })
+  // Scene headings are written in capitals, like the editor shows them.
+  const from = type === 'scene-heading' ? line.from : line.to
+  const insert = `${type === 'scene-heading' ? uppercaseHeading(line.text) : ''}\n\n`
+  view.dispatch({
+    changes: { from, to: line.to, insert },
+    selection: { anchor: from + insert.length },
+    scrollIntoView: true,
+    userEvent: 'input'
+  })
   return true
 }
 

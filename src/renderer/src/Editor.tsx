@@ -3,7 +3,7 @@ import { openSearchPanel } from '@codemirror/search'
 import { Compartment, type EditorState } from '@codemirror/state'
 import { EditorView, minimalSetup } from 'codemirror'
 import { autoformat } from './autoformat'
-import { characterCompletion } from './characterCompletion'
+import { screenplayCompletion } from './completion'
 import { activeEmphasis, emphasisKeys, toggleEmphasis } from './emphasis'
 import { fountainFormatting } from './fountainFormatting'
 import { insertPageBreak, isCentered, toggleCentered } from './lineFormats'
@@ -86,7 +86,7 @@ export function Editor({
         minimalSetup,
         EditorView.lineWrapping,
         formatting.current.of(fountainFormatting(initialFontSize.current)),
-        characterCompletion(),
+        screenplayCompletion(),
         screenplayKeys(),
         emphasisKeys(),
         screenplaySearch(),

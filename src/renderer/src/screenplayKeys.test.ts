@@ -25,6 +25,12 @@ describe('endBlock', () => {
     expect(enter('Action.\n\n.FLASHBACK|')).toBe('Action.\n\n.FLASHBACK\n\n|')
   })
 
+  it('puts a scene heading in capitals, except for notes', () => {
+    expect(enter('int. house - day #1a#|')).toBe('INT. HOUSE - DAY #1A#\n\n|')
+    expect(enter('.dream [[check this]]|')).toBe('.DREAM [[check this]]\n\n|')
+    expect(enter('Action.\n\nint. house|')).toBe('Action.\n\nINT. HOUSE\n\n|')
+  })
+
   it('ends an action line with a blank line', () => {
     expect(enter('Action.|')).toBe('Action.\n\n|')
     expect(enter('INT. HOUSE\n\nBob sits.|')).toBe('INT. HOUSE\n\nBob sits.\n\n|')

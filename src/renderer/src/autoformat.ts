@@ -1,12 +1,12 @@
 import type { ChangeSpec } from '@codemirror/state'
 import type { Command, EditorView } from '@codemirror/view'
-import { classifyLines } from './lib/fountainLines'
+import { classifyLines, type LineType } from './lib/fountainLines'
+import { uppercaseHeading } from './lib/sceneHeadings'
 
 // The tidied text of a line, or null if it is a blank line to remove. Spaces at the ends are
 // trimmed and runs of spaces inside are collapsed. Boneyard is left alone, title page values keep
 // the indentation that continues them, and a dialogue line of two spaces keeps the speech going.
-function tidyLines(lines: string[]): (string | null)[] {
-  const types = classifyLines(lines)
+function tidyLines(lines: string[], types: LineType[]): (string | null)[] {
   const tidied = lines.map((line, i): string => {
     const type = types[i]
     if (type === 'boneyard' || (type === 'dialogue' && line === '  ')) return line
@@ -48,10 +48,24 @@ function lineChanges(from: number, text: string, tidied: string): ChangeSpec[] {
   return changes
 }
 
-// Trims extra spaces and blank lines throughout the document, keeping the cursor in place.
+// The edits that put a scene heading in capitals, replacing only the letters that change. The
+// heading must keep its length in capitals.
+function headingChanges(from: number, text: string): ChangeSpec[] {
+  const upper = uppercaseHeading(text)
+  const changes: ChangeSpec[] = []
+  for (let i = 0; i < text.length; i++) {
+    if (upper[i] !== text[i]) changes.push({ from: from + i, to: from + i + 1, insert: upper[i] })
+  }
+  return changes
+}
+
+// Trims extra spaces and blank lines throughout the document, puts scene headings in capitals and
+// ends the document with a newline, keeping the cursor in place.
 export const autoformat: Command = (view: EditorView): boolean => {
   const { doc } = view.state
-  const tidied = tidyLines(doc.toJSON())
+  const lines = doc.toJSON()
+  const types = classifyLines(lines)
+  const tidied = tidyLines(lines, types)
   const changes: ChangeSpec[] = []
 
   if (tidied.every((text) => text === null)) {
@@ -61,8 +75,16 @@ export const autoformat: Command = (view: EditorView): boolean => {
       const line = doc.line(i + 1)
       // Only blank lines before the last kept one are removed, so each has a newline to take.
       if (text === null) changes.push({ from: line.from, to: line.to + 1 })
-      else changes.push(...lineChanges(line.from, line.text, text))
+      // A letter like "ß" becomes two in capitals ("SS"), so then the whole heading is replaced.
+      else if (types[i] === 'scene-heading' && uppercaseHeading(text).length !== text.length) {
+        changes.push({ from: line.from, to: line.to, insert: uppercaseHeading(text) })
+      } else {
+        changes.push(...lineChanges(line.from, line.text, text))
+        if (types[i] === 'scene-heading') changes.push(...headingChanges(line.from, line.text))
+      }
     })
+    // The file ends with a newline.
+    if (tidied[tidied.length - 1] !== '') changes.push({ from: doc.length, insert: '\n' })
   }
 
   if (changes.length > 0) view.dispatch({ changes, userEvent: 'input' })
