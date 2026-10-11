@@ -2,7 +2,9 @@
 
 All notable changes to Scriptron are listed here. Versions follow [semver](https://semver.org).
 
-## [1.1.0] - 2026-10-11
+## [1.1.1] - 2026-10-11
+
+Version 1.1.0 was never published because its Windows build failed, so this release brings its changes.
 
 ### Added
 
