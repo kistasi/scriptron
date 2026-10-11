@@ -5,6 +5,7 @@
   "description": "A screenplay editor for Fountain files",
   "main": "./out/main/index.js",
   "author": "Marton Tasnadi",
+  "license": "MIT",
   "homepage": "https://github.com/kistasi/scriptron",
   "scripts": {
     "format": "prettier --write .",
