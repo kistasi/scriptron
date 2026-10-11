@@ -1,10 +1,10 @@
 {
   "name": "scriptron",
   "version": "1.0.0",
-  "description": "An Electron application with React and TypeScript",
+  "description": "A screenplay editor for Fountain files",
   "main": "./out/main/index.js",
-  "author": "example.com",
-  "homepage": "https://electron-vite.org",
+  "author": "Marton Tasnadi",
+  "homepage": "https://github.com/kistasi/scriptron",
   "scripts": {
     "format": "prettier --write .",
     "lint": "eslint --cache .",
