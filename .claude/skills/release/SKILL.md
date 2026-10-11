@@ -1,6 +1,6 @@
 ---
 name: release
-description: Release a new version of scriptron. Picks the next semver version, writes a short changelog from the changes since the previous release tag, bumps package.json, commits, tags and pushes, which starts the GitHub Actions build of the installers.
+description: Release a new version of Scriptron. Picks the next semver version, writes a short changelog from the changes since the previous release tag, bumps package.json, commits, tags and pushes, which starts the GitHub Actions build of the installers.
 argument-hint: '[major | minor | patch | X.Y.Z]'
 disable-model-invocation: true
 ---
@@ -63,7 +63,7 @@ below if it doesn't exist):
 ```markdown
 # Changelog
 
-All notable changes to scriptron are listed here. Versions follow [semver](https://semver.org).
+All notable changes to Scriptron are listed here. Versions follow [semver](https://semver.org).
 
 ## [1.1.0] - 2026-10-11
 
@@ -95,7 +95,7 @@ Don't ask for confirmation: running /release is the go-ahead, so go straight on 
 npm version <X.Y.Z> --no-git-tag-version   # only rewrites package.json; skip if unchanged
 git add package.json CHANGELOG.md
 git commit -m "Release v<X.Y.Z>" -m "<the changelog section, without its heading>"
-git tag -a v<X.Y.Z> -m "scriptron <X.Y.Z>"
+git tag -a v<X.Y.Z> -m "Scriptron <X.Y.Z>"
 git push --atomic origin main v<X.Y.Z>
 ```
 

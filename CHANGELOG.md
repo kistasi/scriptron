@@ -1,10 +1,10 @@
 # Changelog
 
-All notable changes to scriptron are listed here. Versions follow [semver](https://semver.org).
+All notable changes to Scriptron are listed here. Versions follow [semver](https://semver.org).
 
 ## [1.0.0] - 2026-10-11
 
-The first release of scriptron, a screenplay editor for Fountain files on macOS and Windows.
+The first release of Scriptron, a screenplay editor for Fountain files on macOS and Windows.
 
 ### Added
 

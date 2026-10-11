@@ -112,18 +112,18 @@ afterEach(cleanup)
 
 describe('App', () => {
   it('starts with a clean untitled document', () => {
-    expect(document.title).toBe('Untitled — scriptron')
+    expect(document.title).toBe('Untitled — Scriptron')
     expect(editor().initialText).toBe('')
     expect(isDirty()).toBe(false)
   })
 
   it('marks the document dirty when edited, and clean when edited back', () => {
     type('INT. HOUSE')
-    expect(document.title).toBe('• Untitled — scriptron')
+    expect(document.title).toBe('• Untitled — Scriptron')
     expect(isDirty()).toBe(true)
 
     type('')
-    expect(document.title).toBe('Untitled — scriptron')
+    expect(document.title).toBe('Untitled — Scriptron')
     expect(isDirty()).toBe(false)
   })
 
@@ -134,7 +134,7 @@ describe('App', () => {
     expect(tabNames()).toEqual(['Untitled', 'Big Fish'])
     expect(selectedTab()).toBe('Big Fish')
     expect(editor().initialText).toBe('EXT. RIVER')
-    expect(document.title).toBe('Big Fish.fountain — scriptron')
+    expect(document.title).toBe('Big Fish.fountain — Scriptron')
     // The window still has unsaved changes, in the other tab.
     expect(isDirty()).toBe(true)
   })
@@ -145,7 +145,7 @@ describe('App', () => {
 
     expect(tabNames()).toEqual(['Big Fish', 'Untitled'])
     expect(editor().initialText).toBe('')
-    expect(document.title).toBe('Untitled — scriptron')
+    expect(document.title).toBe('Untitled — Scriptron')
   })
 
   it('saves to the document’s path', async () => {
@@ -168,7 +168,7 @@ describe('App', () => {
 
     expect(api.saveFile).toHaveBeenCalledWith('text', null, 'Untitled.fountain')
     await finish(bigFish)
-    expect(document.title).toBe('Big Fish.fountain — scriptron')
+    expect(document.title).toBe('Big Fish.fountain — Scriptron')
     expect(isDirty()).toBe(false)
   })
 
@@ -179,7 +179,7 @@ describe('App', () => {
 
     expect(api.saveFile).toHaveBeenCalledWith('text', null, 'Big Fish.fountain')
     await finish({ path: '/scripts/Copy.fountain', name: 'Copy.fountain' })
-    expect(document.title).toBe('Copy.fountain — scriptron')
+    expect(document.title).toBe('Copy.fountain — Scriptron')
   })
 
   it('stays dirty when the save is cancelled or fails', async () => {
@@ -188,7 +188,7 @@ describe('App', () => {
     command('save')
     await finish(null)
 
-    expect(document.title).toBe('• Untitled — scriptron')
+    expect(document.title).toBe('• Untitled — Scriptron')
     expect(isDirty()).toBe(true)
   })
 
@@ -199,7 +199,7 @@ describe('App', () => {
     type('second')
     await finish(bigFish)
 
-    expect(document.title).toBe('• Big Fish.fountain — scriptron')
+    expect(document.title).toBe('• Big Fish.fountain — Scriptron')
     expect(isDirty()).toBe(true)
   })
 
@@ -212,7 +212,7 @@ describe('App', () => {
     await finish(bigFish)
 
     expect(tabNames()).toEqual(['Big Fish', 'Other'])
-    expect(document.title).toBe('Other.fountain — scriptron')
+    expect(document.title).toBe('Other.fountain — Scriptron')
     expect(isDirty()).toBe(false)
   })
 
@@ -240,11 +240,11 @@ describe('App', () => {
       fireEvent.click(screen.getByRole('tab', { name: 'Big Fish' }))
 
       expect(editor().initialText).toBe('EXT. RIVER')
-      expect(document.title).toBe('Big Fish.fountain — scriptron')
+      expect(document.title).toBe('Big Fish.fountain — Scriptron')
       expect(mounts).toBe(3)
 
       fireEvent.click(screen.getByRole('tab', { name: 'Other' }))
-      expect(document.title).toBe('• Other.fountain — scriptron')
+      expect(document.title).toBe('• Other.fountain — Scriptron')
       expect(mounts).toBe(3)
     })
 
@@ -288,7 +288,7 @@ describe('App', () => {
 
       expect(api.confirmClose).not.toHaveBeenCalled()
       expect(tabNames()).toEqual(['Big Fish'])
-      expect(document.title).toBe('Big Fish.fountain — scriptron')
+      expect(document.title).toBe('Big Fish.fountain — Scriptron')
     })
 
     it('asks before closing a tab with unsaved changes', async () => {
@@ -396,7 +396,7 @@ describe('App', () => {
 
     await act(async () => finish(true))
     expect(document.querySelector('.print')).toBeNull()
-    expect(document.title).toBe('Big Fish.fountain — scriptron')
+    expect(document.title).toBe('Big Fish.fountain — Scriptron')
   })
 
   describe('sidebar', () => {

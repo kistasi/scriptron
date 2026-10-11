@@ -1,5 +1,5 @@
 appId: com.kistasi.scriptron
-productName: scriptron
+productName: Scriptron
 directories:
   buildResources: build
 files:
@@ -21,8 +21,8 @@ nsis:
 mac:
   entitlementsInherit: build/entitlements.mac.plist
   extendInfo:
-    - NSDocumentsFolderUsageDescription: scriptron opens and saves screenplays in your Documents folder.
-    - NSDownloadsFolderUsageDescription: scriptron opens and saves screenplays in your Downloads folder.
+    - NSDocumentsFolderUsageDescription: Scriptron opens and saves screenplays in your Documents folder.
+    - NSDownloadsFolderUsageDescription: Scriptron opens and saves screenplays in your Downloads folder.
   notarize: false
   # Apple Silicon and Intel get separate downloads, half the size of one universal app.
   target:

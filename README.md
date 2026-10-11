@@ -1,4 +1,4 @@
-# scriptron
+# Scriptron
 
 ## Project Setup
 

@@ -1,5 +1,6 @@
 {
   "name": "scriptron",
+  "productName": "Scriptron",
   "version": "1.0.0",
   "description": "A screenplay editor for Fountain files",
   "main": "./out/main/index.js",

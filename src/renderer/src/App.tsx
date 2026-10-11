@@ -195,7 +195,7 @@ function App(): React.JSX.Element {
   }, [anyDirty])
 
   useEffect(() => {
-    document.title = `${dirty ? '• ' : ''}${doc.name} — scriptron`
+    document.title = `${dirty ? '• ' : ''}${doc.name} — Scriptron`
   }, [dirty, doc.name])
 
   return (
