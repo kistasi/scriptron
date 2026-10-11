@@ -1,6 +1,6 @@
 import { mkdtemp, readFile, rm, writeFile } from 'fs/promises'
 import { tmpdir } from 'os'
-import { join } from 'path'
+import { join, sep } from 'path'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 const electron = vi.hoisted(() => ({ userData: '' }))
@@ -69,12 +69,16 @@ describe('recent documents', () => {
   })
 
   it('names each file and its folder, shortening the home folder', () => {
-    expect(recent.describeRecent('/Users/me/Scripts/Big Fish.fountain', '/Users/me')).toEqual({
-      path: '/Users/me/Scripts/Big Fish.fountain',
+    // Built with the platform's separator, as real paths are.
+    const home = join(sep, 'Users', 'me')
+    const path = join(home, 'Scripts', 'Big Fish.fountain')
+    expect(recent.describeRecent(path, home)).toEqual({
+      path,
       name: 'Big Fish.fountain',
-      folder: '~/Scripts'
+      folder: join('~', 'Scripts')
     })
-    expect(recent.describeRecent('/Users/me/A.fountain', '/Users/me').folder).toBe('~')
-    expect(recent.describeRecent('/Users/meg/A.fountain', '/Users/me').folder).toBe('/Users/meg')
+    expect(recent.describeRecent(join(home, 'A.fountain'), home).folder).toBe('~')
+    const other = join(sep, 'Users', 'meg')
+    expect(recent.describeRecent(join(other, 'A.fountain'), home).folder).toBe(other)
   })
 })
