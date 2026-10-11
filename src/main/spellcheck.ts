@@ -28,8 +28,11 @@ export function setUpSpellchecker(): void {
       languages.filter((language) => available.includes(language))
     )
   }
-  syncDictionary()
-  onSettingsChanged(syncDictionary)
+  const sync = (): void => {
+    syncDictionary().catch((error) => console.error('Could not update the dictionary', error))
+  }
+  sync()
+  onSettingsChanged(sync)
 }
 
 // The context menu for text fields: spelling suggestions for the word under the pointer, then

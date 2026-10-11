@@ -1,28 +1,26 @@
-import { BrowserWindow, app, ipcMain, nativeTheme } from 'electron'
-import { readFileSync, writeFileSync } from 'fs'
-import { join } from 'path'
+import { ipcMain, nativeTheme } from 'electron'
 import {
   appearances,
   channels,
   defaultSettings,
-  editorFontSizes,
+  maxEditorFontSize,
+  minEditorFontSize,
+  roundFontSize,
   type Settings,
   uiFontSizes
 } from '../shared/ipc'
+import { broadcast, readStored, writeStored } from './store'
 
-const settingsPath = (): string => join(app.getPath('userData'), 'settings.json')
+const settingsFile = 'settings.json'
 // Where earlier versions saved only the appearance.
-const legacyAppearancePath = (): string => join(app.getPath('userData'), 'appearance.json')
+const legacyAppearanceFile = 'appearance.json'
 
 let settings: Settings = defaultSettings
 const listeners: (() => void)[] = []
 
-function readJson(path: string): Record<string, unknown> {
-  try {
-    return JSON.parse(readFileSync(path, 'utf8'))
-  } catch {
-    return {}
-  }
+function readObject(name: string): Record<string, unknown> {
+  const value = readStored(name)
+  return typeof value === 'object' && value !== null ? (value as Record<string, unknown>) : {}
 }
 
 // Keeps only known, valid values, so a damaged or hand-edited file can't break the app.
@@ -43,10 +41,8 @@ function validated(values: Record<string, unknown>, base: Settings): Settings {
 
 // Pinching sets sizes between those offered, to a tenth of a point.
 function editorFontSize(value: unknown, fallback: number): number {
-  const min = editorFontSizes[0]
-  const max = editorFontSizes[editorFontSizes.length - 1]
-  return typeof value === 'number' && value >= min && value <= max
-    ? Math.round(value * 10) / 10
+  return typeof value === 'number' && value >= minEditorFontSize && value <= maxEditorFontSize
+    ? roundFontSize(value)
     : fallback
 }
 
@@ -70,7 +66,7 @@ export function onSettingsChanged(listener: () => void): void {
 // the CSS color variables. The settings are remembered across launches.
 export function loadSettings(): void {
   settings = validated(
-    { ...readJson(legacyAppearancePath()), ...readJson(settingsPath()) },
+    { ...readObject(legacyAppearanceFile), ...readObject(settingsFile) },
     defaultSettings
   )
   nativeTheme.themeSource = settings.appearance
@@ -79,14 +75,8 @@ export function loadSettings(): void {
 export function updateSettings(changes: Partial<Settings>): void {
   settings = validated(changes, settings)
   nativeTheme.themeSource = settings.appearance
-  try {
-    writeFileSync(settingsPath(), JSON.stringify(settings))
-  } catch (error) {
-    console.error('Could not save settings', error)
-  }
-  for (const window of BrowserWindow.getAllWindows()) {
-    window.webContents.send(channels.settingsChanged, settings)
-  }
+  writeStored(settingsFile, settings, 'the settings')
+  broadcast(channels.settingsChanged, settings)
   for (const listener of listeners) listener()
 }
 

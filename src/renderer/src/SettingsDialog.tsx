@@ -1,5 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react'
 import {
+  appearanceLabel,
   appearances,
   defaultSettings,
   editorFontSizes,
@@ -12,8 +13,6 @@ interface SettingsDialogProps {
   onChange: (changes: Partial<Settings>) => void
   onClose: () => void
 }
-
-const capitalized = (text: string): string => text[0].toUpperCase() + text.slice(1)
 
 // Changes apply as soon as they are made; there is nothing to confirm.
 export function SettingsDialog({
@@ -89,7 +88,7 @@ export function SettingsDialog({
                   checked={settings.appearance === appearance}
                   onChange={() => onChange({ appearance })}
                 />
-                <span>{capitalized(appearance)}</span>
+                <span>{appearanceLabel(appearance)}</span>
               </label>
             ))}
           </div>

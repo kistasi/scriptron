@@ -1,10 +1,10 @@
-import { app, ipcMain } from 'electron'
-import { readFileSync, writeFileSync } from 'fs'
+import { ipcMain } from 'electron'
 import { readFile } from 'fs/promises'
-import { basename, join } from 'path'
+import { basename } from 'path'
 import { channels, type OpenedFile, type RestoredSession, type Session } from '../shared/ipc'
+import { readStored, writeStored } from './store'
 
-const sessionPath = (): string => join(app.getPath('userData'), 'session.json')
+const sessionFile = 'session.json'
 
 // Keeps only valid values, so a damaged or hand-edited file can't break the app.
 function validated(values: unknown): Session {
@@ -15,21 +15,10 @@ function validated(values: unknown): Session {
   }
 }
 
-function loadSession(): Session {
-  try {
-    return validated(JSON.parse(readFileSync(sessionPath(), 'utf8')))
-  } catch {
-    return validated(null)
-  }
-}
+const loadSession = (): Session => validated(readStored(sessionFile))
 
-export function saveSession(session: Session): void {
-  try {
-    writeFileSync(sessionPath(), JSON.stringify(validated(session)))
-  } catch (error) {
-    console.error('Could not save the open tabs', error)
-  }
-}
+export const saveSession = (session: Session): void =>
+  writeStored(sessionFile, validated(session), 'the open tabs')
 
 // Reads the remembered files, skipping any that were moved or deleted since.
 export async function restoreSession(): Promise<RestoredSession> {

@@ -5,6 +5,7 @@ import { Editor, type EditorHandle } from './Editor'
 import { PrintView } from './PrintView'
 import { SettingsDialog } from './SettingsDialog'
 import { Sidebar } from './Sidebar'
+import { baseName } from './lib/fileNames'
 import { outlineScenes, sceneAt } from './lib/outline'
 import { layoutScreenplay, type PrintedScreenplay } from './lib/printLayout'
 import {
@@ -35,9 +36,6 @@ const printFonts = ['', 'bold ', 'italic ', 'bold italic '].map(
   (style) => `${style}12pt 'Courier Prime'`
 )
 
-// "Big Fish.fountain" → "Big Fish"
-const baseName = (name: string): string => name.replace(/\.fountain$/i, '')
-
 // Whether the sidebar is shown is remembered per machine; storage may be unavailable.
 const sidebarKey = 'sidebar-visible'
 
@@ -49,16 +47,46 @@ function loadSidebarVisible(): boolean {
   }
 }
 
+// A value the main process owns, read once and then kept up to date. A change that arrives before
+// the read resolves wins, since the read may be stale by then.
+function useMainValue<T>(
+  initial: T,
+  get: () => Promise<T>,
+  subscribe: (callback: (value: T) => void) => () => void
+): T {
+  const [value, setValue] = useState(initial)
+  useEffect(() => {
+    let changed = false
+    const unsubscribe = subscribe((value) => {
+      changed = true
+      setValue(value)
+    })
+    get().then((value) => {
+      if (!changed) setValue(value)
+    })
+    return unsubscribe
+  }, [get, subscribe])
+  return value
+}
+
 function App(): React.JSX.Element {
   const [state, setState] = useState<Tabs>(noTabs)
   // Set while exporting a PDF: the screenplay laid out for printing.
   const [printed, setPrinted] = useState<PrintedScreenplay | null>(null)
   const [sidebarVisible, setSidebarVisible] = useState(loadSidebarVisible)
-  const [settings, setSettings] = useState<Settings>(defaultSettings)
+  const settings = useMainValue<Settings>(
+    defaultSettings,
+    window.api.getSettings,
+    window.api.onSettingsChanged
+  )
   const [settingsOpen, setSettingsOpen] = useState(false)
   // Whether the tabs from the last launch have been reopened; until then, they aren't saved.
   const [restored, setRestored] = useState(false)
-  const [recent, setRecent] = useState<RecentDocument[]>([])
+  const recent = useMainValue<RecentDocument[]>(
+    [],
+    window.api.getRecent,
+    window.api.onRecentChanged
+  )
   const [samples, setSamples] = useState<string[]>([])
   // The editor of each tab, by tab id.
   const editors = useRef(new Map<number, EditorHandle>())
@@ -168,30 +196,6 @@ function App(): React.JSX.Element {
   useEffect(() => {
     if (restored) window.api.saveSession(JSON.parse(session))
   }, [restored, session])
-
-  useEffect(() => {
-    let changed = false
-    const unsubscribe = window.api.onSettingsChanged((settings) => {
-      changed = true
-      setSettings(settings)
-    })
-    window.api.getSettings().then((settings) => {
-      if (!changed) setSettings(settings)
-    })
-    return unsubscribe
-  }, [])
-
-  useEffect(() => {
-    let changed = false
-    const unsubscribe = window.api.onRecentChanged((recent) => {
-      changed = true
-      setRecent(recent)
-    })
-    window.api.getRecent().then((recent) => {
-      if (!changed) setRecent(recent)
-    })
-    return unsubscribe
-  }, [])
 
   useEffect(() => {
     window.api.getSamples().then(setSamples)

@@ -1,5 +1,5 @@
 import { Menu, MenuItemConstructorOptions, app } from 'electron'
-import { appearances } from '../shared/ipc'
+import { appearanceLabel, appearances } from '../shared/ipc'
 import { openDocument, openRecent, openSample, sendMenuCommand } from './document'
 import { clearRecent, getRecent } from './recent'
 import { samples } from './samples'
@@ -155,7 +155,7 @@ export function buildMenu(): void {
         {
           label: 'Appearance',
           submenu: appearances.map((appearance) => ({
-            label: appearance[0].toUpperCase() + appearance.slice(1),
+            label: appearanceLabel(appearance),
             type: 'radio',
             checked: getSettings().appearance === appearance,
             click: () => updateSettings({ appearance })

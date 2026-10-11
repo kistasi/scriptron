@@ -1,10 +1,4 @@
-import { editorFontSizes } from '../../../shared/ipc'
-
-const minSize = editorFontSizes[0]
-const maxSize = editorFontSizes[editorFontSizes.length - 1]
-
-// Sizes are kept to a tenth of a point, so the shown size is the one that's saved.
-const rounded = (size: number): number => Math.round(size * 10) / 10
+import { maxEditorFontSize, minEditorFontSize, roundFontSize } from '../../../shared/ipc'
 
 // How quickly the size follows the pinch: the size is multiplied by e for every this many wheel
 // delta pixels, as in Chromium's own pinch zoom.
@@ -25,7 +19,8 @@ interface PinchHandlers {
 // Turns pinch gestures (wheel events with ctrlKey set, as Chromium sends them on trackpads) into a
 // text size that follows the fingers. Returns a cleanup function.
 export function listenForPinch(element: HTMLElement, handlers: PinchHandlers): () => void {
-  // While pinching: the exact size, which is rounded for showing.
+  // While pinching: the exact size, which is rounded for showing, so the shown size is the one
+  // that's saved.
   let size: number | null = null
   let shown: number | null = null
   let pointer = { x: 0, y: 0 }
@@ -34,15 +29,15 @@ export function listenForPinch(element: HTMLElement, handlers: PinchHandlers): (
 
   const show = (): void => {
     frame = 0
-    if (size === null || rounded(size) === shown) return
-    shown = rounded(size)
+    if (size === null || roundFontSize(size) === shown) return
+    shown = roundFontSize(size)
     handlers.preview(shown, pointer.x, pointer.y)
   }
 
   const finish = (): void => {
     if (frame) cancelAnimationFrame(frame)
     show()
-    if (size !== null) handlers.commit(rounded(size))
+    if (size !== null) handlers.commit(roundFontSize(size))
     size = shown = null
   }
 
@@ -51,7 +46,10 @@ export function listenForPinch(element: HTMLElement, handlers: PinchHandlers): (
     // Otherwise the browser would zoom the whole window.
     event.preventDefault()
     if (size === null) shown = size = handlers.size()
-    size = Math.min(maxSize, Math.max(minSize, size * Math.exp(-event.deltaY / pinchRate)))
+    size = Math.min(
+      maxEditorFontSize,
+      Math.max(minEditorFontSize, size * Math.exp(-event.deltaY / pinchRate))
+    )
     pointer = { x: event.clientX, y: event.clientY }
     if (!frame) frame = requestAnimationFrame(show)
     clearTimeout(timer)

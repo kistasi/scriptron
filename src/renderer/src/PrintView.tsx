@@ -47,16 +47,20 @@ function Text({ spans }: { spans: Span[] }): React.JSX.Element {
   )
 }
 
-// A block of rows at the bottom of the title page, aligned to the left or right.
+// A block of the title page's rows, aligned to the left, right or center.
 function TitleBlock({
   rows,
-  align
+  align,
+  className,
+  style
 }: {
   rows: Span[][]
-  align: 'left' | 'right'
+  align: 'left' | 'right' | 'center'
+  className?: string
+  style?: CSSProperties
 }): React.JSX.Element {
   return (
-    <div className="print-title-bottom" style={{ textAlign: align }}>
+    <div className={className} style={{ ...style, textAlign: align }}>
       {rows.map((spans, k) => (
         <div key={k} className="print-row">
           <Text spans={spans} />
@@ -74,13 +78,11 @@ export function PrintView({ screenplay }: { screenplay: PrintedScreenplay }): Re
       {titlePage && (
         <section className="print-page print-title-page" style={pageStyle}>
           {/* The title sits about a third of the way down the page. */}
-          <div style={{ marginTop: `calc(18 * ${rowHeight})`, textAlign: 'center' }}>
-            {titlePage.center.map((spans, k) => (
-              <div key={k} className="print-row">
-                <Text spans={spans} />
-              </div>
-            ))}
-          </div>
+          <TitleBlock
+            rows={titlePage.center}
+            align="center"
+            style={{ marginTop: `calc(18 * ${rowHeight})` }}
+          />
           <div
             className="print-title-footer"
             style={{
@@ -89,8 +91,8 @@ export function PrintView({ screenplay }: { screenplay: PrintedScreenplay }): Re
               bottom: inches(titlePageFooter.bottom)
             }}
           >
-            <TitleBlock rows={titlePage.bottomLeft} align="left" />
-            <TitleBlock rows={titlePage.bottomRight} align="right" />
+            <TitleBlock rows={titlePage.bottomLeft} align="left" className="print-title-bottom" />
+            <TitleBlock rows={titlePage.bottomRight} align="right" className="print-title-bottom" />
           </div>
         </section>
       )}

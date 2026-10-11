@@ -1,5 +1,6 @@
 import React from 'react'
 import type { RecentDocument } from '../../shared/ipc'
+import { baseName } from './lib/fileNames'
 
 interface WelcomeProps {
   // The most recent first.
@@ -11,9 +12,6 @@ interface WelcomeProps {
   onOpenRecent: (path: string) => void
   onOpenSample: (title: string) => void
 }
-
-// "Big Fish.fountain" → "Big Fish"
-const baseName = (name: string): string => name.replace(/\.fountain$/i, '')
 
 // The home page: shown from the home button, when the app opens with no documents to reopen, and
 // once the last tab is closed.

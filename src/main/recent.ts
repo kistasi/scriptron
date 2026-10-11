@@ -1,12 +1,12 @@
-import { BrowserWindow, app, ipcMain } from 'electron'
-import { readFileSync, writeFileSync } from 'fs'
-import { basename, dirname, join, sep } from 'path'
+import { app, ipcMain } from 'electron'
+import { basename, dirname, sep } from 'path'
 import { channels, type RecentDocument } from '../shared/ipc'
+import { broadcast, readStored, writeStored } from './store'
 
 // How many documents File ▸ Open Recent and the welcome screen list.
 export const maxRecent = 10
 
-const recentPath = (): string => join(app.getPath('userData'), 'recent.json')
+const recentFile = 'recent.json'
 
 // The paths of the recently opened or saved files, the most recent first.
 let paths: string[] = []
@@ -20,11 +20,7 @@ function validated(values: unknown): string[] {
 }
 
 export function loadRecent(): void {
-  try {
-    paths = validated(JSON.parse(readFileSync(recentPath(), 'utf8')))
-  } catch {
-    paths = []
-  }
+  paths = validated(readStored(recentFile))
 }
 
 // "/Users/me/Scripts/Big Fish.fountain" → name "Big Fish.fountain", folder "~/Scripts"
@@ -46,15 +42,8 @@ function setRecent(next: string[]): void {
   next = validated(next)
   if (next.length === paths.length && next.every((path, i) => path === paths[i])) return
   paths = next
-  try {
-    writeFileSync(recentPath(), JSON.stringify(paths))
-  } catch (error) {
-    console.error('Could not save the recent documents', error)
-  }
-  const recent = getRecent()
-  for (const window of BrowserWindow.getAllWindows()) {
-    window.webContents.send(channels.recentChanged, recent)
-  }
+  writeStored(recentFile, paths, 'the recent documents')
+  broadcast(channels.recentChanged, getRecent())
   for (const listener of listeners) listener()
 }
 

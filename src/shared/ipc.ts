@@ -71,6 +71,15 @@ export const appearances: Appearance[] = ['system', 'light', 'dark']
 export const uiFontSizes = [11, 12, 13, 14, 15, 16, 18, 20]
 export const editorFontSizes = [9, 10, 11, 12, 13, 14, 16, 18, 20, 24]
 
+// "system" → "System", as the menu and the Settings dialog show it.
+export const appearanceLabel = (appearance: Appearance): string =>
+  appearance[0].toUpperCase() + appearance.slice(1)
+
+// Pinching sets editor text sizes anywhere between those offered, to a tenth of a point.
+export const minEditorFontSize = editorFontSizes[0]
+export const maxEditorFontSize = editorFontSizes[editorFontSizes.length - 1]
+export const roundFontSize = (size: number): number => Math.round(size * 10) / 10
+
 export const channels = {
   // main → renderer, with an OpenedFile
   fileOpened: 'file:opened',
