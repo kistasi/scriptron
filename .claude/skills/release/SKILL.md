@@ -7,7 +7,7 @@ disable-model-invocation: true
 
 # Release a new version
 
-Requested bump or version: `$ARGUMENTS` (empty means: propose one from the changes).
+Requested bump or version: `$ARGUMENTS` (empty means: choose one from the changes).
 
 Pushing a `v*` tag runs `.github/workflows/build.yml`, which builds the macOS and Windows
 installers and attaches them to a **draft** GitHub Release whose notes are this version's
@@ -87,13 +87,9 @@ All notable changes to scriptron are listed here. Versions follow [semver](https
   CI changes unless users notice them (e.g. faster typing in long screenplays).
 - For the first release, summarize the main features of the app instead of listing every commit.
 
-## 6. Confirm before changing anything
+Don't ask for confirmation: running /release is the go-ahead, so go straight on to releasing.
 
-Show the user the version (with why it's that bump) and the changelog section, and ask
-whether to release it. Apply their edits and ask again. Go on only once they agree, as the
-following pushes to GitHub.
-
-## 7. Bump, commit, tag and push
+## 6. Bump, commit, tag and push
 
 ```bash
 npm version <X.Y.Z> --no-git-tag-version   # only rewrites package.json; skip if unchanged
@@ -106,8 +102,9 @@ git push --atomic origin main v<X.Y.Z>
 End the commit message with the co-author line from the conversation's attribution
 instructions, if there is one. `--atomic` makes sure the tag is never pushed without its commit.
 
-## 8. Report
+## 7. Report
 
+- Show the version (with why it's that bump) and the changelog section.
 - Find the build started by the tag: `gh run list --workflow build.yml --limit 1`, and give the
   user its URL. It takes several minutes; don't wait for it unless asked.
 - Tell the user the release will appear as a draft at
