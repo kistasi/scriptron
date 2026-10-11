@@ -1,0 +1,84 @@
+# Builds unsigned macOS and Windows installers. Pushing a version tag (the /release skill does)
+# also attaches them to a draft GitHub Release, to check and publish by hand.
+name: Build
+
+on:
+  push:
+    tags: ['v*']
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    strategy:
+      matrix:
+        include:
+          - os: macos-latest
+            platform: mac
+          - os: windows-latest
+            platform: win
+    runs-on: ${{ matrix.os }}
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: yarn
+
+      - run: yarn install --frozen-lockfile
+
+      - run: yarn typecheck
+      - run: yarn test
+
+      - run: yarn electron-vite build
+
+      # Without a certificate, electron-builder would leave the app unsigned, which Apple Silicon
+      # Macs report as damaged. An ad-hoc signature lets it open after a Gatekeeper warning instead;
+      # hardened runtime has to be off for that.
+      - name: Package for macOS
+        if: matrix.platform == 'mac'
+        run: yarn electron-builder --mac --publish never -c.mac.identity=- -c.mac.hardenedRuntime=false
+        env:
+          CSC_IDENTITY_AUTO_DISCOVERY: false
+
+      - name: Package for Windows
+        if: matrix.platform == 'win'
+        run: yarn electron-builder --win --publish never
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: scriptron-${{ matrix.platform }}
+          path: |
+            dist/*.dmg
+            dist/*.zip
+            dist/*.exe
+          if-no-files-found: error
+
+  release:
+    if: startsWith(github.ref, 'refs/tags/v')
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/download-artifact@v4
+        with:
+          path: dist
+          merge-multiple: true
+
+      # The notes are the version's section of CHANGELOG.md, or GitHub's list of commits without one.
+      - name: Create a draft release
+        run: |
+          version="${GITHUB_REF_NAME#v}"
+          awk -v v="$version" '/^## /{ p = index($0, "[" v "]") > 0; next } p' CHANGELOG.md > notes.md || true
+          if [ -s notes.md ]; then notes=(--notes-file notes.md); else notes=(--generate-notes); fi
+          gh release create "$GITHUB_REF_NAME" dist/* --draft --title "scriptron $version" "${notes[@]}"
+        env:
+          GH_TOKEN: ${{ github.token }}
