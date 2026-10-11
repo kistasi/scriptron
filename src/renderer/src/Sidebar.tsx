@@ -31,6 +31,7 @@ interface Drop {
 
 // The index the dragged scene ends up at, or null if it stays where it is.
 function dropIndex(from: number, { target, after }: Drop): number | null {
+  if (target === from) return null
   const to = target + (after ? 1 : 0) - (target > from ? 1 : 0)
   return to === from ? null : to
 }

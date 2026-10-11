@@ -154,6 +154,7 @@ function App(): React.JSX.Element {
       const scenes = outlineScenes(lines)
       const label = ({ number, heading }: Scene): string => `${number}. ${heading}`
       if (scenes.map(label).join('\n') !== outlined.map(label).join('\n')) return
+      if (!scenes[from] || !scenes[to]) return
       // Moving up puts it before the scene now at `to`, moving down after it.
       const move = { scene: label(scenes[from]), target: label(scenes[to]), after: to > from }
       if (!(await window.api.confirmMoveScene(move))) return
