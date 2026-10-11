@@ -6,6 +6,7 @@ import {
   type RecentDocument,
   type RestoredSession,
   type SavedFile,
+  type SceneMove,
   type Session,
   type Settings
 } from '../shared/ipc'
@@ -41,6 +42,9 @@ const api = {
   setDirty: (dirty: boolean): void => ipcRenderer.send(channels.setDirty, dirty),
   // Asks whether to close the named document and lose its unsaved changes.
   confirmClose: (name: string): Promise<boolean> => ipcRenderer.invoke(channels.confirmClose, name),
+  // Asks whether to move a scene dragged in the outline.
+  confirmMoveScene: (move: SceneMove): Promise<boolean> =>
+    ipcRenderer.invoke(channels.confirmMoveScene, move),
   // Prints the window's print view to a PDF. Resolves to false if cancelled or failed.
   exportPdf: (name: string): Promise<boolean> => ipcRenderer.invoke(channels.exportPdf, name),
   // Reads the files that were open in tabs when the app last ran.

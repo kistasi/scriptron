@@ -6,7 +6,7 @@ import { PrintView } from './PrintView'
 import { SettingsDialog } from './SettingsDialog'
 import { Sidebar } from './Sidebar'
 import { baseName } from './lib/fileNames'
-import { outlineScenes, sceneAt } from './lib/outline'
+import { moveScene, outlineScenes, sceneAt, type Scene } from './lib/outline'
 import { layoutScreenplay, type PrintedScreenplay } from './lib/printLayout'
 import {
   activeTab,
@@ -132,6 +132,28 @@ function App(): React.JSX.Element {
     if (isDirty(tab) && !(await window.api.confirmClose(tab.name))) return
     setState((state) => closeTab(state, id))
   }, [])
+
+  // Moves a scene dragged in the outline, once confirmed. The outline lags behind typing, so the
+  // move is only made if it still matches the text, which mustn't change while the dialog is open.
+  const moveOutlinedScene = useCallback(
+    async (outlined: Scene[], from: number, to: number): Promise<void> => {
+      const tab = activeTab(latest.current)
+      if (!tab) return
+      const lines = tab.text.split('\n')
+      const scenes = outlineScenes(lines)
+      const label = ({ number, heading }: Scene): string => `${number}. ${heading}`
+      if (scenes.map(label).join('\n') !== outlined.map(label).join('\n')) return
+      // Moving up puts it before the scene now at `to`, moving down after it.
+      const move = { scene: label(scenes[from]), target: label(scenes[to]), after: to > from }
+      if (!(await window.api.confirmMoveScene(move))) return
+      if (activeTab(latest.current)?.text !== tab.text) return
+      const moved = moveScene(lines, scenes, from, to)
+      const editor = editors.current.get(tab.id)
+      editor?.replaceText(moved.lines.join('\n'))
+      editor?.goToLine(moved.line)
+    },
+    []
+  )
 
   useEffect(() => {
     const save = async (tab: Tab, saveAs: boolean): Promise<void> => {
@@ -292,6 +314,7 @@ function App(): React.JSX.Element {
               scenes={scenes}
               current={currentScene}
               onSelect={(scene) => editors.current.get(doc.id)?.goToLine(scene.line)}
+              onMove={(from, to) => moveOutlinedScene(scenes, from, to)}
               onCollapse={() => setSidebarVisible(false)}
               width={sidebarWidth}
               onResize={setSidebarWidth}

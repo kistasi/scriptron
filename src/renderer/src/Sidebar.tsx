@@ -6,6 +6,8 @@ interface SidebarProps {
   // The scene the cursor is in, highlighted and kept in view.
   current: Scene | undefined
   onSelect: (scene: Scene) => void
+  // Asks to move the scene at index `from` of scenes to index `to`, after it was dragged.
+  onMove: (from: number, to: number) => void
   onCollapse: () => void
   // The width in pixels, or null for the default width.
   width: number | null
@@ -21,11 +23,24 @@ const maxWidth = (): number => Math.max(minWidth, window.innerWidth * 0.6)
 const clampWidth = (width: number): number =>
   Math.round(Math.min(maxWidth(), Math.max(minWidth, width)))
 
+// Where a dragged scene would be dropped: next to the scene at index `target` of scenes.
+interface Drop {
+  target: number
+  after: boolean
+}
+
+// The index the dragged scene ends up at, or null if it stays where it is.
+function dropIndex(from: number, { target, after }: Drop): number | null {
+  const to = target + (after ? 1 : 0) - (target > from ? 1 : 0)
+  return to === from ? null : to
+}
+
 // The scene outline, as in Beat: every scene heading, numbered, filtered by the search field.
 export function Sidebar({
   scenes,
   current,
   onSelect,
+  onMove,
   onCollapse,
   width,
   onResize
@@ -34,6 +49,9 @@ export function Sidebar({
   const listRef = useRef<HTMLOListElement>(null)
   const asideRef = useRef<HTMLElement>(null)
   const shown = filterScenes(scenes, query)
+  // The index in scenes of the scene being dragged, and where it would be dropped.
+  const dragged = useRef<number | null>(null)
+  const [drop, setDrop] = useState<Drop | null>(null)
 
   useEffect(() => {
     listRef.current?.querySelector('[aria-current]')?.scrollIntoView({ block: 'nearest' })
@@ -65,6 +83,40 @@ export function Sidebar({
     handle.addEventListener('lostpointercapture', end)
   }
 
+  // The upper half of a scene drops before it, the lower half after it.
+  const dropAt = (event: React.DragEvent<HTMLLIElement>, target: number): Drop => {
+    const { top, height } = event.currentTarget.getBoundingClientRect()
+    return { target, after: event.clientY > top + height / 2 }
+  }
+
+  const onDragOver = (event: React.DragEvent<HTMLLIElement>, target: number): void => {
+    const from = dragged.current
+    if (from === null) return
+    event.preventDefault()
+    const next = dropAt(event, target)
+    if (dropIndex(from, next) === null) {
+      event.dataTransfer.dropEffect = 'none'
+      setDrop(null)
+    } else {
+      event.dataTransfer.dropEffect = 'move'
+      if (drop?.target !== next.target || drop.after !== next.after) setDrop(next)
+    }
+  }
+
+  const onDrop = (event: React.DragEvent<HTMLLIElement>, target: number): void => {
+    event.preventDefault()
+    const from = dragged.current
+    const to = from === null ? null : dropIndex(from, dropAt(event, target))
+    dragged.current = null
+    setDrop(null)
+    if (from !== null && to !== null) onMove(from, to)
+  }
+
+  const onDragEnd = (): void => {
+    dragged.current = null
+    setDrop(null)
+  }
+
   const onResizeKey = (event: React.KeyboardEvent<HTMLDivElement>): void => {
     const current = asideRef.current?.getBoundingClientRect().width ?? 0
     if (event.key === 'ArrowLeft') onResize(clampWidth(current - keyStep))
@@ -85,18 +137,39 @@ export function Sidebar({
         <p className="sidebar-empty">{scenes.length === 0 ? 'No scenes' : 'No matching scenes'}</p>
       ) : (
         <ol className="sidebar-scenes" ref={listRef}>
-          {shown.map((scene) => (
-            <li key={scene.line}>
-              <button
-                type="button"
-                className="sidebar-scene"
-                aria-current={scene === current ? 'true' : undefined}
-                onClick={() => onSelect(scene)}
+          {shown.map((scene) => {
+            const index = scenes.indexOf(scene)
+            const dropClass =
+              drop?.target === index ? (drop.after ? ' drop-after' : ' drop-before') : ''
+            return (
+              <li
+                key={scene.line}
+                className={`sidebar-scene-item${dropClass}`}
+                draggable
+                onDragStart={(event) => {
+                  dragged.current = index
+                  event.dataTransfer.effectAllowed = 'move'
+                  event.dataTransfer.setData('text/plain', scene.heading)
+                }}
+                onDragOver={(event) => onDragOver(event, index)}
+                onDragLeave={(event) => {
+                  if (!event.currentTarget.contains(event.relatedTarget as Node | null))
+                    setDrop(null)
+                }}
+                onDrop={(event) => onDrop(event, index)}
+                onDragEnd={onDragEnd}
               >
-                <span className="sidebar-scene-number">{scene.number}.</span> {scene.heading}
-              </button>
-            </li>
-          ))}
+                <button
+                  type="button"
+                  className="sidebar-scene"
+                  aria-current={scene === current ? 'true' : undefined}
+                  onClick={() => onSelect(scene)}
+                >
+                  <span className="sidebar-scene-number">{scene.number}.</span> {scene.heading}
+                </button>
+              </li>
+            )
+          })}
         </ol>
       )}
       <div className="sidebar-footer">

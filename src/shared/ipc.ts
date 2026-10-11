@@ -80,6 +80,14 @@ export const minEditorFontSize = editorFontSizes[0]
 export const maxEditorFontSize = editorFontSizes[editorFontSizes.length - 1]
 export const roundFontSize = (size: number): number => Math.round(size * 10) / 10
 
+// A scene about to be moved in the outline. Scenes are given as shown there, e.g. "3. INT. HOUSE".
+export interface SceneMove {
+  scene: string
+  // The scene it will be placed next to.
+  target: string
+  after: boolean
+}
+
 export const channels = {
   // main → renderer, with an OpenedFile
   fileOpened: 'file:opened',
@@ -96,6 +104,9 @@ export const channels = {
   // renderer → main (invoke) with the name of a document with unsaved changes; asks whether to
   // close it anyway, resolves to true to close it
   confirmClose: 'document:confirm-close',
+  // renderer → main (invoke) with a SceneMove; asks whether to move the scene, resolves to true
+  // to move it
+  confirmMoveScene: 'document:confirm-move-scene',
   // renderer → main (invoke), resolves to the RestoredSession
   restoreSession: 'session:restore',
   // renderer → main, with the Session whenever it changes

@@ -18,6 +18,8 @@ export interface EditorHandle {
   goToLine: (line: number) => void
   // Opens the find & replace panel, or focuses it if it's already open.
   openSearch: () => void
+  // Replaces the text as one change that can be undone, e.g. to move a scene.
+  replaceText: (text: string) => void
 }
 
 interface EditorProps {
@@ -122,6 +124,26 @@ export function Editor({
     },
     openSearch: () => {
       if (viewRef.current) openSearchPanel(viewRef.current)
+    },
+    replaceText: (text) => {
+      const view = viewRef.current
+      if (!view) return
+      // Only the part that differs is replaced, so the rest keeps its place for the selection.
+      const old = view.state.doc.toString()
+      let from = 0
+      while (from < old.length && from < text.length && old[from] === text[from]) from++
+      let end = 0
+      while (
+        end < old.length - from &&
+        end < text.length - from &&
+        old[old.length - 1 - end] === text[text.length - 1 - end]
+      )
+        end++
+      if (from === old.length && from === text.length) return
+      view.dispatch({
+        changes: { from, to: old.length - end, insert: text.slice(from, text.length - end) },
+        userEvent: 'move'
+      })
     }
   }))
 

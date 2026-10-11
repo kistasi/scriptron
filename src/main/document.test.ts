@@ -195,6 +195,24 @@ describe('closing a tab', () => {
   })
 })
 
+describe('moving a scene', () => {
+  it('asks before moving a scene', async () => {
+    const move = { scene: '3. EXT. RIVER - NIGHT', target: '1. INT. HOUSE - DAY', after: false }
+    dialog.showMessageBox.mockResolvedValue({ response: 1 })
+    expect(await fromRenderer(channels.confirmMoveScene, move)).toBe(false)
+    expect(dialog.showMessageBox).toHaveBeenCalledWith(
+      window,
+      expect.objectContaining({
+        message: 'Move scene 3. EXT. RIVER - NIGHT?',
+        detail: expect.stringContaining('before scene 1. INT. HOUSE - DAY')
+      })
+    )
+
+    dialog.showMessageBox.mockResolvedValue({ response: 0 })
+    expect(await fromRenderer(channels.confirmMoveScene, move)).toBe(true)
+  })
+})
+
 describe('opening', () => {
   it('reads the chosen file and sends it to the renderer', async () => {
     const path = join(dir, 'Big Fish.fountain')

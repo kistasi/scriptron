@@ -1,7 +1,13 @@
 import { BrowserWindow, dialog, ipcMain, type MessageBoxOptions } from 'electron'
 import { readFile, writeFile } from 'fs/promises'
 import { basename } from 'path'
-import { channels, type MenuCommand, type OpenedFile, type SavedFile } from '../shared/ipc'
+import {
+  channels,
+  type MenuCommand,
+  type OpenedFile,
+  type SavedFile,
+  type SceneMove
+} from '../shared/ipc'
 import { addRecent, removeRecent } from './recent'
 import { samples } from './samples'
 
@@ -43,6 +49,22 @@ async function confirmClose(window: BrowserWindow, name: string): Promise<boolea
     'Your changes will be lost if you close it.'
   )
   const { response } = await dialog.showMessageBox(window, options)
+  return response === 0
+}
+
+// Asks whether to move a scene dragged in the outline; true to move it.
+async function confirmMoveScene(
+  window: BrowserWindow,
+  { scene, target, after }: SceneMove
+): Promise<boolean> {
+  const { response } = await dialog.showMessageBox(window, {
+    type: 'question',
+    message: `Move scene ${scene}?`,
+    detail: `It will be placed ${after ? 'after' : 'before'} scene ${target}. You can undo the move with Edit › Undo.`,
+    buttons: ['Move Scene', 'Cancel'],
+    defaultId: 0,
+    cancelId: 1
+  })
   return response === 0
 }
 
@@ -167,6 +189,11 @@ export function registerDocumentHandlers(): void {
   ipcMain.handle(channels.confirmClose, (event, name: string) => {
     const window = BrowserWindow.fromWebContents(event.sender)
     return window ? confirmClose(window, name) : false
+  })
+
+  ipcMain.handle(channels.confirmMoveScene, (event, move: SceneMove) => {
+    const window = BrowserWindow.fromWebContents(event.sender)
+    return window ? confirmMoveScene(window, move) : false
   })
 
   ipcMain.on(channels.setDirty, (event, dirty: boolean) => {

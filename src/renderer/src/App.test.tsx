@@ -24,7 +24,7 @@ import { NEW_SCRIPT, NEW_SCRIPT_CURSOR } from './lib/tabs'
 
 // The real editor needs a browser layout engine; this stand-in records the props of each mounted
 // editor (one per tab), exposes onChange and onCursorLine so tests can type and move the cursor,
-// and records goToLine and openSearch calls, the latter with the editor's initial text.
+// and records goToLine, openSearch and replaceText calls, openSearch with the editor's initial text.
 interface EditorProps {
   initialText: string
   initialCursor: number
@@ -33,12 +33,17 @@ interface EditorProps {
   visible: boolean
   onChange: (text: string) => void
   onCursorLine: (line: number) => void
-  ref: React.Ref<{ goToLine: (line: number) => void; openSearch: () => void }>
+  ref: React.Ref<{
+    goToLine: (line: number) => void
+    openSearch: () => void
+    replaceText: (text: string) => void
+  }>
 }
 let editors: Map<number, Omit<EditorProps, 'ref'>>
 let mounts: number
 const goToLine = vi.fn()
 const openSearch = vi.fn()
+const replaceText = vi.fn()
 vi.mock('./Editor', async () => {
   const { useEffect, useImperativeHandle, useState } = await import('react')
   return {
@@ -47,7 +52,8 @@ vi.mock('./Editor', async () => {
       editors.set(n, props)
       useImperativeHandle(ref, () => ({
         goToLine,
-        openSearch: () => openSearch(props.initialText)
+        openSearch: () => openSearch(props.initialText),
+        replaceText
       }))
       useEffect(() => () => void editors.delete(n), [n])
       return null
@@ -104,6 +110,7 @@ beforeEach(async () => {
   mounts = 0
   goToLine.mockClear()
   openSearch.mockClear()
+  replaceText.mockClear()
   localStorage.clear()
   api = {
     onFileOpened: vi.fn((callback) => ((fileOpened = callback), () => {})),
@@ -111,6 +118,7 @@ beforeEach(async () => {
     saveFile: vi.fn(),
     setDirty: vi.fn(),
     confirmClose: vi.fn(),
+    confirmMoveScene: vi.fn(),
     exportPdf: vi.fn(),
     getSettings: vi.fn(() => Promise.resolve(defaultSettings)),
     updateSettings: vi.fn(),
@@ -570,6 +578,52 @@ describe('App', () => {
 
       fireEvent.keyDown(search, { key: 'Escape' })
       expect(sceneTitles()).toHaveLength(2)
+    })
+
+    // jsdom has no layout, so every drop lands in the lower half of the scene under the pointer.
+    const dragScene = (from: RegExp, onto: RegExp): Promise<void> =>
+      act(async () => {
+        const item = (text: RegExp): HTMLElement => screen.getByText(text).closest('li')!
+        const dataTransfer = { setData: vi.fn(), effectAllowed: '', dropEffect: '' }
+        fireEvent.dragStart(item(from), { dataTransfer })
+        // jsdom has no DragEvent, so the pointer position is set on the event itself.
+        for (const type of ['dragOver', 'drop'] as const) {
+          const event = createEvent[type](item(onto), { dataTransfer })
+          Object.defineProperty(event, 'clientY', { value: 1 })
+          fireEvent(item(onto), event)
+        }
+        fireEvent.dragEnd(item(from), { dataTransfer })
+      })
+
+    it('moves a dragged scene once confirmed', async () => {
+      open({ ...bigFish, content: script })
+      api.confirmMoveScene.mockResolvedValueOnce(true)
+      await dragScene(/INT\. HOUSE/, /EXT\. RIVER/)
+
+      expect(api.confirmMoveScene).toHaveBeenCalledWith({
+        scene: '1. INT. HOUSE - DAY',
+        target: '2. EXT. RIVER - NIGHT',
+        after: true
+      })
+      expect(replaceText).toHaveBeenCalledWith(
+        'EXT. RIVER - NIGHT\n\nWater.\n\nINT. HOUSE - DAY\n\nAction.'
+      )
+      expect(goToLine).toHaveBeenLastCalledWith(4)
+    })
+
+    it('leaves the scenes as they are when the move is cancelled', async () => {
+      open({ ...bigFish, content: script })
+      api.confirmMoveScene.mockResolvedValueOnce(false)
+      await dragScene(/INT\. HOUSE/, /EXT\. RIVER/)
+
+      expect(api.confirmMoveScene).toHaveBeenCalled()
+      expect(replaceText).not.toHaveBeenCalled()
+    })
+
+    it('does not ask when a scene is dropped where it already is', async () => {
+      open({ ...bigFish, content: script })
+      await dragScene(/EXT\. RIVER/, /EXT\. RIVER/)
+      expect(api.confirmMoveScene).not.toHaveBeenCalled()
     })
 
     it('collapses and expands, from its button and the menu', () => {
