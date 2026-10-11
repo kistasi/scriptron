@@ -12,6 +12,8 @@ import {
   closeTab,
   cycleTab,
   initialTabs,
+  NEW_SCRIPT,
+  NEW_SCRIPT_CURSOR,
   isDirty,
   moveTab,
   openTab,
@@ -73,7 +75,7 @@ function App(): React.JSX.Element {
 
   const newTab = useCallback((): void => {
     const id = nextTabId++
-    setState((state) => openTab(state, { id, path: null, name: null, text: '' }))
+    setState((state) => openTab(state, { id, path: null, name: null, text: NEW_SCRIPT }))
   }, [])
 
   // Asks first if the document has unsaved changes.
@@ -241,6 +243,7 @@ function App(): React.JSX.Element {
                 return () => void editors.current.delete(tab.id)
               }}
               initialText={tab.initialText}
+              initialCursor={tab.path === null ? NEW_SCRIPT_CURSOR : 0}
               fontSize={settings.editorFontSize}
               checkSpelling={settings.checkSpelling}
               visible={tab.id === activeId}

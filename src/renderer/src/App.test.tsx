@@ -11,12 +11,14 @@ import {
   type Settings
 } from '../../shared/ipc'
 import App from './App'
+import { NEW_SCRIPT, NEW_SCRIPT_CURSOR } from './lib/tabs'
 
 // The real editor needs a browser layout engine; this stand-in records the props of each mounted
 // editor (one per tab), exposes onChange and onCursorLine so tests can type and move the cursor,
 // and records goToLine and openSearch calls, the latter with the editor's initial text.
 interface EditorProps {
   initialText: string
+  initialCursor: number
   fontSize: number
   checkSpelling: boolean
   visible: boolean
@@ -113,7 +115,8 @@ afterEach(cleanup)
 describe('App', () => {
   it('starts with a clean untitled document', () => {
     expect(document.title).toBe('Untitled — Scriptron')
-    expect(editor().initialText).toBe('')
+    expect(editor().initialText).toBe(NEW_SCRIPT)
+    expect(editor().initialCursor).toBe(NEW_SCRIPT_CURSOR)
     expect(isDirty()).toBe(false)
   })
 
@@ -122,7 +125,7 @@ describe('App', () => {
     expect(document.title).toBe('• Untitled — Scriptron')
     expect(isDirty()).toBe(true)
 
-    type('')
+    type(NEW_SCRIPT)
     expect(document.title).toBe('Untitled — Scriptron')
     expect(isDirty()).toBe(false)
   })
@@ -134,6 +137,7 @@ describe('App', () => {
     expect(tabNames()).toEqual(['Untitled', 'Big Fish'])
     expect(selectedTab()).toBe('Big Fish')
     expect(editor().initialText).toBe('EXT. RIVER')
+    expect(editor().initialCursor).toBe(0)
     expect(document.title).toBe('Big Fish.fountain — Scriptron')
     // The window still has unsaved changes, in the other tab.
     expect(isDirty()).toBe(true)
@@ -144,7 +148,8 @@ describe('App', () => {
     command('new')
 
     expect(tabNames()).toEqual(['Big Fish', 'Untitled'])
-    expect(editor().initialText).toBe('')
+    expect(editor().initialText).toBe(NEW_SCRIPT)
+    expect(editor().initialCursor).toBe(NEW_SCRIPT_CURSOR)
     expect(document.title).toBe('Untitled — Scriptron')
   })
 

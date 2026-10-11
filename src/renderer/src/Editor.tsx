@@ -22,6 +22,8 @@ export interface EditorHandle {
 
 interface EditorProps {
   initialText: string
+  // Where the cursor starts, as an offset into initialText.
+  initialCursor?: number
   // Text size in points.
   fontSize: number
   // Whether misspellings are underlined.
@@ -47,6 +49,7 @@ function activeFormats(state: EditorState): Set<ToolbarCommand> {
 // so give it a new key to load a different document.
 export function Editor({
   initialText,
+  initialCursor = 0,
   fontSize,
   checkSpelling,
   visible,
@@ -62,6 +65,7 @@ export function Editor({
   // Read when the editor mounts; later changes reconfigure it below.
   const initialFontSize = useRef(fontSize)
   const initialCheckSpelling = useRef(checkSpelling)
+  const initialCursorRef = useRef(initialCursor)
   const paneRef = useRef<HTMLDivElement>(null)
   const callbacks = useRef({ onChange, onCursorLine, onZoom })
   const [active, setActive] = useState<Set<ToolbarCommand>>(() => new Set())
@@ -125,6 +129,7 @@ export function Editor({
     const view = new EditorView({
       parent: hostRef.current!,
       doc: initialText,
+      selection: { anchor: initialCursorRef.current },
       extensions: [
         minimalSetup,
         EditorView.lineWrapping,

@@ -4,6 +4,7 @@ import {
   cycleTab,
   initialTabs,
   moveTab,
+  NEW_SCRIPT,
   openTab,
   restoreTabs,
   sessionOf,
@@ -25,7 +26,7 @@ const untitled = (id: number): Parameters<typeof openTab>[1] => ({
   id,
   path: null,
   name: null,
-  text: ''
+  text: NEW_SCRIPT
 })
 
 describe('tabs', () => {

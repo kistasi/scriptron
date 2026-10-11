@@ -30,13 +30,27 @@ export interface NewDocument {
   text: string
 }
 
+// What a new document starts with: a title page to fill in, then the screenplay.
+export const NEW_SCRIPT = [
+  'Title: ',
+  'Credit: Written by',
+  'Author:',
+  'Draft date: {{date}}',
+  'Contact:',
+  '',
+  ''
+].join('\n')
+
+// Where the cursor starts in a new document: ready to type the title.
+export const NEW_SCRIPT_CURSOR = 'Title: '.length
+
 export const isDirty = (tab: Tab): boolean => tab.text !== tab.savedText
 
 export const activeTab = ({ tabs, activeId }: Tabs): Tab =>
   tabs.find((tab) => tab.id === activeId) ?? tabs[0]
 
-// A new, empty, untitled document that hasn't been touched, which an opened file replaces.
-const isBlank = (tab: Tab): boolean => tab.path === null && tab.text === '' && !isDirty(tab)
+// A new untitled document that hasn't been touched, which an opened file replaces.
+const isBlank = (tab: Tab): boolean => tab.path === null && tab.text === NEW_SCRIPT && !isDirty(tab)
 
 function untitledName(tabs: Tab[]): string {
   const names = new Set(tabs.map((tab) => tab.name))
@@ -59,7 +73,7 @@ function createTab(tabs: Tab[], { id, path, name, text }: NewDocument): Tab {
 }
 
 export const initialTabs = (id: number): Tabs => {
-  const tab = createTab([], { id, path: null, name: null, text: '' })
+  const tab = createTab([], { id, path: null, name: null, text: NEW_SCRIPT })
   return { tabs: [tab], activeId: tab.id }
 }
 
