@@ -1,7 +1,7 @@
 {
   "name": "scriptron",
   "productName": "Scriptron",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "description": "A screenplay editor for Fountain files",
   "main": "./out/main/index.js",
   "author": "Marton Tasnadi",

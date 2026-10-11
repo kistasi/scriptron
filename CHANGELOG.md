@@ -2,6 +2,19 @@
 
 All notable changes to Scriptron are listed here. Versions follow [semver](https://semver.org).
 
+## [1.1.0] - 2026-10-11
+
+### Added
+
+- A welcome screen with your recent documents and the sample screenplay, shown at launch, after closing the last tab, and from the home button at the start of the tab bar.
+- File > Open Recent.
+- New scripts start with a title page, with the cursor ready for the title.
+- A download for Intel Macs alongside the Apple Silicon one.
+
+### Changed
+
+- The app is now called Scriptron, capitalized, in the menu bar, window titles and installers.
+
 ## [1.0.0] - 2026-10-11
 
 The first release of Scriptron, a screenplay editor for Fountain files on macOS and Windows.
