@@ -2,6 +2,7 @@ import React, { useCallback, useDeferredValue, useEffect, useMemo, useRef, useSt
 import { flushSync } from 'react-dom'
 import { defaultSettings, type RecentDocument, type Settings } from '../../shared/ipc'
 import { Editor, type EditorHandle } from './Editor'
+import { PdfPreview } from './PdfPreview'
 import { PrintView } from './PrintView'
 import { SettingsDialog } from './SettingsDialog'
 import { Sidebar } from './Sidebar'
@@ -85,6 +86,8 @@ function App(): React.JSX.Element {
   const [state, setState] = useState<Tabs>(noTabs)
   // Set while exporting a PDF: the screenplay laid out for printing.
   const [printed, setPrinted] = useState<PrintedScreenplay | null>(null)
+  // Whether the PDF preview is shown, for the shown document.
+  const [previewing, setPreviewing] = useState(false)
   const [sidebarVisible, setSidebarVisible] = useState(loadSidebarVisible)
   const [sidebarWidth, setSidebarWidth] = useState(loadSidebarWidth)
   const settings = useMainValue<Settings>(
@@ -113,6 +116,14 @@ function App(): React.JSX.Element {
   const outlinedText = useDeferredValue(doc?.text ?? '')
   const scenes = useMemo(() => outlineScenes(outlinedText.split('\n')), [outlinedText])
   const currentScene = sceneAt(scenes, doc?.cursorLine ?? 0)
+
+  // The preview closes with the last tab, rather than coming back with the next one.
+  if (previewing && !doc) setPreviewing(false)
+  const previewedText = previewing ? (doc?.text ?? null) : null
+  const previewed = useMemo(
+    () => (previewedText === null ? null : layoutScreenplay(previewedText)),
+    [previewedText]
+  )
 
   // Menu commands arrive outside React's render cycle and need the latest values.
   const latest = useRef(state)
@@ -155,6 +166,21 @@ function App(): React.JSX.Element {
     []
   )
 
+  const exportPdf = useCallback(async ({ name, text }: Tab): Promise<void> => {
+    const screenplay = layoutScreenplay(text)
+    flushSync(() => setPrinted(screenplay))
+    // The window title becomes the PDF's title.
+    const windowTitle = document.title
+    document.title = screenplay.title || baseName(name)
+    try {
+      await Promise.all(printFonts.map((font) => document.fonts?.load(font)))
+      await window.api.exportPdf(`${baseName(name)}.pdf`)
+    } finally {
+      document.title = windowTitle
+      setPrinted(null)
+    }
+  }, [])
+
   useEffect(() => {
     const save = async (tab: Tab, saveAs: boolean): Promise<void> => {
       const name = `${baseName(tab.name)}.fountain`
@@ -162,21 +188,6 @@ function App(): React.JSX.Element {
       if (!saved) return
       // The tab may have been edited, or closed, while the save dialog was open.
       setState((state) => updateTab(state, tab.id, { ...saved, savedText: tab.text }))
-    }
-
-    const exportPdf = async ({ name, text }: Tab): Promise<void> => {
-      const screenplay = layoutScreenplay(text)
-      flushSync(() => setPrinted(screenplay))
-      // The window title becomes the PDF's title.
-      const windowTitle = document.title
-      document.title = screenplay.title || baseName(name)
-      try {
-        await Promise.all(printFonts.map((font) => document.fonts?.load(font)))
-        await window.api.exportPdf(`${baseName(name)}.pdf`)
-      } finally {
-        document.title = windowTitle
-        setPrinted(null)
-      }
     }
 
     const unsubscribeOpened = window.api.onFileOpened(({ path, name, content }) => {
@@ -194,6 +205,7 @@ function App(): React.JSX.Element {
       else if (!tab) return
       else if (command === 'close-tab') close(tab.id)
       else if (command === 'export-pdf') exportPdf(tab)
+      else if (command === 'preview-pdf') setPreviewing((previewing) => !previewing)
       else if (command === 'find') editors.current.get(tab.id)?.openSearch()
       else save(tab, command === 'save-as')
     })
@@ -211,7 +223,7 @@ function App(): React.JSX.Element {
       unsubscribeMenu()
       window.removeEventListener('keydown', onKeyDown, true)
     }
-  }, [newTab, close])
+  }, [newTab, close, exportPdf])
 
   useEffect(() => {
     window.api.restoreSession().then(({ files, activePath }) => {
@@ -347,10 +359,18 @@ function App(): React.JSX.Element {
                 setState((state) => updateTab(state, tab.id, { cursorLine }))
               }
               onZoom={zoomEditor}
+              onPreviewPdf={() => setPreviewing(true)}
             />
           ))}
         </div>
       </div>
+      {previewed && doc && (
+        <PdfPreview
+          screenplay={previewed}
+          onExport={() => exportPdf(doc)}
+          onClose={() => setPreviewing(false)}
+        />
+      )}
       {settingsDialog}
       {printed && <PrintView screenplay={printed} />}
     </>

@@ -1,7 +1,7 @@
 import React from 'react'
 import type { Emphasis } from './emphasis'
 
-export type ToolbarCommand = Emphasis | 'centered' | 'page-break' | 'autoformat'
+export type ToolbarCommand = Emphasis | 'centered' | 'page-break' | 'autoformat' | 'preview-pdf'
 
 const isMac = navigator.platform.startsWith('Mac')
 const mod = isMac ? '⌘' : 'Ctrl+'
@@ -15,7 +15,7 @@ interface ToolbarButton {
   action?: boolean
 }
 
-// Groups of buttons, separated by a divider.
+// Groups of buttons, separated by a divider. The last one is set apart at the right end.
 const groups: ToolbarButton[][] = [
   [
     { command: 'bold', label: 'Bold', shortcut: `${mod}B`, glyph: <b>B</b> },
@@ -34,6 +34,15 @@ const groups: ToolbarButton[][] = [
       glyph: '¶',
       action: true
     }
+  ],
+  [
+    {
+      command: 'preview-pdf',
+      label: 'Preview PDF',
+      shortcut: `${isMac ? '⇧⌘' : 'Ctrl+Shift+'}P`,
+      glyph: 'PDF',
+      action: true
+    }
   ]
 ]
 
@@ -43,7 +52,8 @@ interface ToolbarProps {
   onCommand: (command: ToolbarCommand) => void
 }
 
-// Formatting buttons above the page; they apply Fountain markup to the selected text.
+// Buttons above the page: formatting, which applies Fountain markup to the selected text, and
+// previewing the PDF.
 export function Toolbar({ active, onCommand }: ToolbarProps): React.JSX.Element {
   return (
     <div className="toolbar" role="toolbar" aria-label="Formatting">

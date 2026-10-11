@@ -38,6 +38,7 @@ export type MenuCommand =
   | 'save'
   | 'save-as'
   | 'export-pdf'
+  | 'preview-pdf'
   | 'find'
   | 'toggle-sidebar'
   | 'open-settings'

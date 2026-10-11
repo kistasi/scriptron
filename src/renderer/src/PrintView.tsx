@@ -1,6 +1,6 @@
 import React, { type CSSProperties } from 'react'
 import { elementIndents, page, pageNumber, sceneNumberMargins } from './lib/screenplayLayout'
-import type { PrintedScreenplay, Row, Span } from './lib/printLayout'
+import type { PrintedPage, PrintedScreenplay, Row, Span, TitlePage } from './lib/printLayout'
 
 const inches = (value: number): string => `${value}in`
 
@@ -10,11 +10,12 @@ const rowHeight = inches(1 / 6)
 // Distance of the contact and date block from the sides and bottom of the title page, in inches.
 const titlePageFooter = { side: 0.76, bottom: 1.2 }
 
-const pageStyle: CSSProperties = {
+const pageStyle = {
   width: inches(page.width),
   height: inches(page.height),
-  paddingTop: inches(page.top)
-}
+  paddingTop: inches(page.top),
+  '--row-height': rowHeight
+} as CSSProperties
 
 function rowStyle(type: Row['type']): CSSProperties {
   const indent = elementIndents[type === 'more' ? 'character' : type] ?? { left: 0, right: 0 }
@@ -70,68 +71,80 @@ function TitleBlock({
   )
 }
 
+// The printed title page.
+export function TitleSheet({ titlePage }: { titlePage: TitlePage }): React.JSX.Element {
+  return (
+    <section className="print-page print-title-page" style={pageStyle}>
+      {/* The title sits about a third of the way down the page. */}
+      <TitleBlock
+        rows={titlePage.center}
+        align="center"
+        style={{ marginTop: `calc(18 * ${rowHeight})` }}
+      />
+      <div
+        className="print-title-footer"
+        style={{
+          left: inches(titlePageFooter.side),
+          right: inches(titlePageFooter.side),
+          bottom: inches(titlePageFooter.bottom)
+        }}
+      >
+        <TitleBlock rows={titlePage.bottomLeft} align="left" className="print-title-bottom" />
+        <TitleBlock rows={titlePage.bottomRight} align="right" className="print-title-bottom" />
+      </div>
+    </section>
+  )
+}
+
+// One printed page of the screenplay.
+export function PageSheet({ printed }: { printed: PrintedPage }): React.JSX.Element {
+  return (
+    <section className="print-page" style={pageStyle}>
+      {printed.number !== null && (
+        <div
+          className="print-row print-page-number"
+          style={{ top: inches(pageNumber.top), right: inches(pageNumber.right) }}
+        >
+          {printed.number}.
+        </div>
+      )}
+      {printed.rows.map((row, k) =>
+        row === null ? (
+          <div key={k} className="print-row" />
+        ) : (
+          <div key={k} className={`print-row print-${row.type}`} style={rowStyle(row.type)}>
+            {row.scene !== undefined && (
+              <>
+                <span
+                  className="print-scene-number"
+                  style={{ left: inches(sceneNumberMargins.left) }}
+                >
+                  {row.scene}
+                </span>
+                <span
+                  className="print-scene-number"
+                  style={{ right: inches(sceneNumberMargins.right) }}
+                >
+                  {row.scene}
+                </span>
+              </>
+            )}
+            <Text spans={row.spans} />
+          </div>
+        )
+      )}
+    </section>
+  )
+}
+
 // The screenplay as printed pages. It is only shown when printing, which is how PDFs are exported.
 export function PrintView({ screenplay }: { screenplay: PrintedScreenplay }): React.JSX.Element {
   const { titlePage, pages } = screenplay
   return (
-    <div className="print" style={{ '--row-height': rowHeight } as CSSProperties}>
-      {titlePage && (
-        <section className="print-page print-title-page" style={pageStyle}>
-          {/* The title sits about a third of the way down the page. */}
-          <TitleBlock
-            rows={titlePage.center}
-            align="center"
-            style={{ marginTop: `calc(18 * ${rowHeight})` }}
-          />
-          <div
-            className="print-title-footer"
-            style={{
-              left: inches(titlePageFooter.side),
-              right: inches(titlePageFooter.side),
-              bottom: inches(titlePageFooter.bottom)
-            }}
-          >
-            <TitleBlock rows={titlePage.bottomLeft} align="left" className="print-title-bottom" />
-            <TitleBlock rows={titlePage.bottomRight} align="right" className="print-title-bottom" />
-          </div>
-        </section>
-      )}
+    <div className="print">
+      {titlePage && <TitleSheet titlePage={titlePage} />}
       {pages.map((printed, n) => (
-        <section key={n} className="print-page" style={pageStyle}>
-          {printed.number !== null && (
-            <div
-              className="print-row print-page-number"
-              style={{ top: inches(pageNumber.top), right: inches(pageNumber.right) }}
-            >
-              {printed.number}.
-            </div>
-          )}
-          {printed.rows.map((row, k) =>
-            row === null ? (
-              <div key={k} className="print-row" />
-            ) : (
-              <div key={k} className={`print-row print-${row.type}`} style={rowStyle(row.type)}>
-                {row.scene !== undefined && (
-                  <>
-                    <span
-                      className="print-scene-number"
-                      style={{ left: inches(sceneNumberMargins.left) }}
-                    >
-                      {row.scene}
-                    </span>
-                    <span
-                      className="print-scene-number"
-                      style={{ right: inches(sceneNumberMargins.right) }}
-                    >
-                      {row.scene}
-                    </span>
-                  </>
-                )}
-                <Text spans={row.spans} />
-              </div>
-            )
-          )}
-        </section>
+        <PageSheet key={n} printed={printed} />
       ))}
     </div>
   )

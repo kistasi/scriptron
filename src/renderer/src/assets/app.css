@@ -275,6 +275,13 @@ body {
   border-left: 1px solid var(--sidebar-border);
 }
 
+/* The PDF button, at the right end, away from the formatting buttons. */
+.toolbar-group:last-child {
+  margin-left: auto;
+  padding-left: 0;
+  border-left: none;
+}
+
 .toolbar-button {
   min-width: 2em;
   height: 2em;
@@ -778,18 +785,15 @@ body {
   }
 }
 
-.print {
-  color: #000;
-  background: #fff;
-  font-family: 'Courier Prime', Courier, monospace;
-  font-size: 12pt;
-}
-
 .print-page {
   position: relative;
   box-sizing: border-box;
   overflow: hidden;
   break-after: page;
+  color: #000;
+  background: #fff;
+  font-family: 'Courier Prime', Courier, monospace;
+  font-size: 12pt;
 }
 
 .print-row {
@@ -827,4 +831,124 @@ body {
   display: flex;
   justify-content: space-between;
   align-items: flex-end;
+}
+
+/* The PDF preview, over the whole window: page thumbnails on the left, the pages in the middle. */
+.preview {
+  position: fixed;
+  inset: 0;
+  z-index: 2;
+  display: flex;
+  background: var(--desk);
+  font:
+    var(--ui-font-size) / 1.35 system-ui,
+    -apple-system,
+    sans-serif;
+}
+
+/* After .preview, which would otherwise win: the preview's pages mustn't be printed with the PDF. */
+@media print {
+  .preview {
+    display: none;
+  }
+}
+
+.preview-thumbnails {
+  display: flex;
+  flex: none;
+  flex-direction: column;
+  gap: 1em;
+  overflow-y: auto;
+  padding: 1em;
+  border-right: 1px solid var(--sidebar-border);
+  background: var(--sidebar);
+}
+
+.preview-thumbnail {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.35em;
+  padding: 0;
+  border: none;
+  background: none;
+  color: var(--sidebar-muted);
+  font: inherit;
+  cursor: pointer;
+}
+
+.preview-thumbnail .preview-sheet {
+  outline: 2px solid transparent;
+  outline-offset: 2px;
+}
+
+.preview-thumbnail[aria-current='page'] {
+  color: var(--sidebar-ink);
+}
+
+.preview-thumbnail[aria-current='page'] .preview-sheet,
+.preview-thumbnail:focus-visible .preview-sheet {
+  outline-color: var(--accent);
+}
+
+.preview-thumbnail:focus-visible {
+  outline: none;
+}
+
+/* Keeps a blank row's height when the label is empty, under the title page. */
+.preview-thumbnail-label {
+  min-height: 1.35em;
+  font-size: 0.85em;
+}
+
+/* Positioned, so that the pages' offsetTop is measured from it. */
+.preview-pages {
+  position: relative;
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  align-items: center;
+  overflow: auto;
+  outline: none;
+}
+
+.preview-sheet {
+  flex: none;
+  box-shadow: 0 1px 4px rgb(0 0 0 / 0.25);
+}
+
+.preview-actions {
+  position: absolute;
+  top: 12px;
+  right: 16px;
+  display: flex;
+  gap: 8px;
+}
+
+.preview-button {
+  min-height: 2em;
+  padding: 0 0.9em;
+  border: 1px solid var(--sidebar-border);
+  border-radius: 6px;
+  background: var(--sidebar);
+  color: var(--sidebar-ink);
+  font: inherit;
+  cursor: pointer;
+}
+
+.preview-button:hover {
+  background: var(--sidebar-hover);
+}
+
+.preview-button:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
+}
+
+.preview-close {
+  width: 2em;
+  padding: 0;
+  border-radius: 50%;
+  font-size: 1.1em;
+  line-height: 1;
 }

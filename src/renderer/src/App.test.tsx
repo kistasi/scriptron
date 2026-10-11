@@ -33,6 +33,7 @@ interface EditorProps {
   visible: boolean
   onChange: (text: string) => void
   onCursorLine: (line: number) => void
+  onPreviewPdf: () => void
   ref: React.Ref<{
     goToLine: (line: number) => void
     openSearch: () => void
@@ -540,6 +541,73 @@ describe('App', () => {
     await act(async () => finish(true))
     expect(document.querySelector('.print')).toBeNull()
     expect(document.title).toBe('Big Fish.fountain — Scriptron')
+  })
+
+  describe('PDF preview', () => {
+    const preview = (): HTMLElement | null => screen.queryByRole('dialog', { name: 'PDF Preview' })
+
+    beforeEach(() => {
+      open({
+        ...bigFish,
+        content: 'Title: Big Fish\n\nEXT. RIVER - DAY\n\n===\n\nINT. HOUSE - NIGHT'
+      })
+      command('preview-pdf')
+    })
+
+    it('shows the printed pages, with a thumbnail of each', () => {
+      const pages = within(preview()!).getByRole('navigation', { name: 'Pages' })
+      expect(
+        within(pages)
+          .getAllByRole('button')
+          .map((button) => button.getAttribute('aria-label'))
+      ).toEqual(['Title page', 'Page 1', 'Page 2'])
+      expect(within(pages).getByRole('button', { name: 'Title page' })).toHaveProperty(
+        'ariaCurrent',
+        'page'
+      )
+      expect(preview()?.textContent).toContain('EXT. RIVER - DAY')
+      expect(preview()?.textContent).toContain('INT. HOUSE - NIGHT')
+    })
+
+    it("opens from the toolbar's button", () => {
+      command('preview-pdf')
+      expect(preview()).toBeNull()
+      act(() => editor().onPreviewPdf())
+      expect(preview()).not.toBeNull()
+    })
+
+    it('follows the shown document as it changes', () => {
+      type('Title: Big Fish\n\nEXT. LAKE - DAY')
+      expect(preview()?.textContent).toContain('EXT. LAKE - DAY')
+    })
+
+    it('closes with the close button, Escape or the menu command again', () => {
+      fireEvent.click(screen.getByRole('button', { name: 'Close Preview' }))
+      expect(preview()).toBeNull()
+      command('preview-pdf')
+      fireEvent.keyDown(window, { key: 'Escape' })
+      expect(preview()).toBeNull()
+      command('preview-pdf')
+      command('preview-pdf')
+      expect(preview()).toBeNull()
+    })
+
+    it('exports the PDF', async () => {
+      api.exportPdf.mockResolvedValueOnce(true)
+      await act(async () => fireEvent.click(screen.getByRole('button', { name: 'Export PDF…' })))
+      expect(api.exportPdf).toHaveBeenCalledWith('Big Fish.pdf')
+      expect(preview()).not.toBeNull()
+    })
+
+    it('closes when the last tab does, and stays closed', async () => {
+      api.confirmClose.mockResolvedValue(true)
+      // The untitled document, then Big Fish.
+      await act(async () => menuCommand('close-tab'))
+      await act(async () => menuCommand('close-tab'))
+      expect(screen.queryByRole('tab')).toBeNull()
+      command('new')
+      expect(preview()).toBeNull()
+    })
   })
 
   describe('sidebar', () => {

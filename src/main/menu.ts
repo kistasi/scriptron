@@ -71,6 +71,11 @@ export function buildMenu(): void {
         },
         { type: 'separator' },
         {
+          label: 'Preview PDF',
+          accelerator: 'Shift+CmdOrCtrl+P',
+          click: () => sendMenuCommand('preview-pdf')
+        },
+        {
           label: 'Export PDF…',
           accelerator: 'Shift+CmdOrCtrl+E',
           click: () => sendMenuCommand('export-pdf')

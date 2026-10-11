@@ -37,6 +37,8 @@ interface EditorProps {
   onCursorLine?: (line: number) => void
   // Called with the new text size when a pinch is over.
   onZoom?: (fontSize: number) => void
+  // The toolbar's PDF button.
+  onPreviewPdf?: () => void
   ref?: React.Ref<EditorHandle>
 }
 
@@ -58,6 +60,7 @@ export function Editor({
   onChange,
   onCursorLine,
   onZoom,
+  onPreviewPdf,
   ref
 }: EditorProps): React.JSX.Element {
   const hostRef = useRef<HTMLDivElement>(null)
@@ -203,6 +206,8 @@ export function Editor({
   }, [checkSpelling])
 
   const runCommand = (command: ToolbarCommand): void => {
+    // The preview takes the focus.
+    if (command === 'preview-pdf') return onPreviewPdf?.()
     const view = viewRef.current
     if (!view) return
     if (command === 'centered') toggleCentered(view)
