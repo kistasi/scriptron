@@ -14,29 +14,29 @@ describe('layoutScreenplay', () => {
   it('lays out the title page', () => {
     const { title, titlePage, pages } = layoutScreenplay(
       [
-        'Title: boomer',
-        'Credit: Írta',
-        'Author: Tasnádi Márton',
-        'Contact:',
-        '    marton.tasnadi@gmail.com',
+        'Title: Big Fish',
+        'Credit: written by',
+        'Author: John August',
+        'Copyright:',
+        '    (c) 2003 Columbia Pictures',
         'Draft date: {{date YYYY-MM-dd}}',
         '',
         'Action.'
       ].join('\n'),
       now
     )
-    expect(title).toBe('boomer')
+    expect(title).toBe('Big Fish')
     expect(titlePage).toEqual({
       center: [
-        [{ text: 'BOOMER' }],
+        [{ text: 'BIG FISH' }],
         [],
         [],
         [],
-        [{ text: 'Írta' }],
+        [{ text: 'written by' }],
         [],
-        [{ text: 'Tasnádi Márton' }]
+        [{ text: 'John August' }]
       ],
-      bottomLeft: [[{ text: 'marton.tasnadi@gmail.com' }]],
+      bottomLeft: [[{ text: '(c) 2003 Columbia Pictures' }]],
       bottomRight: [[{ text: '2026-09-19' }]]
     })
     expect(pages.map((page) => page.number)).toEqual([null])
