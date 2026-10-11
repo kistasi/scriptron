@@ -10,8 +10,8 @@ disable-model-invocation: true
 Requested bump or version: `$ARGUMENTS` (empty means: choose one from the changes).
 
 Pushing a `v*` tag runs `.github/workflows/build.yml`, which builds the macOS and Windows
-installers and attaches them to a **draft** GitHub Release whose notes are this version's
-CHANGELOG.md section. Publishing that draft is left to the user.
+installers and publishes them as a GitHub Release whose notes are this version's
+CHANGELOG.md section.
 
 ## 1. Check the repository is ready
 
@@ -107,8 +107,8 @@ instructions, if there is one. `--atomic` makes sure the tag is never pushed wit
 - Show the version (with why it's that bump) and the changelog section.
 - Find the build started by the tag: `gh run list --workflow build.yml --limit 1`, and give the
   user its URL. It takes several minutes; don't wait for it unless asked.
-- Tell the user the release will appear as a draft at
-  `https://github.com/kistasi/scriptron/releases` once the build finishes, to check and publish.
+- Tell the user the release will be published at
+  `https://github.com/kistasi/scriptron/releases` once the build finishes.
 - If a step fails after the commit but before the push, say exactly what was done locally
   (commit, tag) so it can be undone with `git tag -d` and `git reset --hard HEAD~1`; never
   delete or move a tag that has already been pushed.

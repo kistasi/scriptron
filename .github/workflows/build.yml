@@ -1,5 +1,5 @@
 # Builds unsigned macOS and Windows installers. Pushing a version tag (the /release skill does)
-# also attaches them to a draft GitHub Release, to check and publish by hand.
+# also publishes them as a GitHub Release.
 name: Build
 
 on:
@@ -74,11 +74,11 @@ jobs:
           merge-multiple: true
 
       # The notes are the version's section of CHANGELOG.md, or GitHub's list of commits without one.
-      - name: Create a draft release
+      - name: Publish the release
         run: |
           version="${GITHUB_REF_NAME#v}"
           awk -v v="$version" '/^## /{ p = index($0, "[" v "]") > 0; next } p' CHANGELOG.md > notes.md || true
           if [ -s notes.md ]; then notes=(--notes-file notes.md); else notes=(--generate-notes); fi
-          gh release create "$GITHUB_REF_NAME" dist/* --draft --title "scriptron $version" "${notes[@]}"
+          gh release create "$GITHUB_REF_NAME" dist/* --title "scriptron $version" "${notes[@]}"
         env:
           GH_TOKEN: ${{ github.token }}
