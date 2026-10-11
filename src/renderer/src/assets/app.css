@@ -303,6 +303,7 @@ body {
 
 /* The scene outline on the left, as in Beat. */
 .sidebar {
+  position: relative;
   display: flex;
   flex-direction: column;
   flex: 0 0 21.5em;
@@ -390,6 +391,32 @@ body {
     -apple-system,
     sans-serif;
   cursor: pointer;
+}
+
+/* The sidebar's draggable right edge, a little wider than the border it sits on. */
+.sidebar-resize {
+  position: absolute;
+  top: 0;
+  right: -4px;
+  bottom: 0;
+  z-index: 1;
+  width: 7px;
+  cursor: col-resize;
+  touch-action: none;
+}
+
+.sidebar-resize:hover,
+.sidebar-resize:focus-visible,
+.resizing-sidebar .sidebar-resize {
+  outline: none;
+  background: linear-gradient(var(--sidebar-muted), var(--sidebar-muted)) center / 2px 100%
+    no-repeat;
+}
+
+/* While dragging, keep the resize cursor everywhere and don't select text. */
+.resizing-sidebar {
+  cursor: col-resize;
+  user-select: none;
 }
 
 /* Shown in place of the collapsed sidebar, over the desk. */

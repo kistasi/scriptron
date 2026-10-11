@@ -582,6 +582,20 @@ describe('App', () => {
       command('toggle-sidebar')
       expect(screen.queryByRole('complementary')).toBeNull()
     })
+
+    it('resizes from its edge, and resets on double-click', () => {
+      const sidebar = screen.getByRole('complementary', { name: 'Scenes' })
+      const edge = screen.getByRole('separator', { name: 'Resize Sidebar' })
+
+      // jsdom has no layout, so the sidebar measures 0 and is clamped to the minimum.
+      fireEvent.keyDown(edge, { key: 'ArrowRight' })
+      expect(sidebar.style.flexBasis).toBe('160px')
+      expect(localStorage.getItem('sidebar-width')).toBe('160')
+
+      fireEvent.doubleClick(edge)
+      expect(sidebar.style.flexBasis).toBe('')
+      expect(localStorage.getItem('sidebar-width')).toBeNull()
+    })
   })
 
   it('opens the editor search from the Find menu item', () => {

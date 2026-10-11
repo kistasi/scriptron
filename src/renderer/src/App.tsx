@@ -47,6 +47,18 @@ function loadSidebarVisible(): boolean {
   }
 }
 
+// Likewise the sidebar's width, in pixels; null means the default width.
+const sidebarWidthKey = 'sidebar-width'
+
+function loadSidebarWidth(): number | null {
+  try {
+    const width = Number(localStorage.getItem(sidebarWidthKey))
+    return width > 0 ? width : null
+  } catch {
+    return null
+  }
+}
+
 // A value the main process owns, read once and then kept up to date. A change that arrives before
 // the read resolves wins, since the read may be stale by then.
 function useMainValue<T>(
@@ -74,6 +86,7 @@ function App(): React.JSX.Element {
   // Set while exporting a PDF: the screenplay laid out for printing.
   const [printed, setPrinted] = useState<PrintedScreenplay | null>(null)
   const [sidebarVisible, setSidebarVisible] = useState(loadSidebarVisible)
+  const [sidebarWidth, setSidebarWidth] = useState(loadSidebarWidth)
   const settings = useMainValue<Settings>(
     defaultSettings,
     window.api.getSettings,
@@ -219,6 +232,15 @@ function App(): React.JSX.Element {
   }, [sidebarVisible])
 
   useEffect(() => {
+    try {
+      if (sidebarWidth === null) localStorage.removeItem(sidebarWidthKey)
+      else localStorage.setItem(sidebarWidthKey, String(sidebarWidth))
+    } catch {
+      // Not remembered, which is fine.
+    }
+  }, [sidebarWidth])
+
+  useEffect(() => {
     window.api.setDirty(anyDirty)
   }, [anyDirty])
 
@@ -271,6 +293,8 @@ function App(): React.JSX.Element {
               current={currentScene}
               onSelect={(scene) => editors.current.get(doc.id)?.goToLine(scene.line)}
               onCollapse={() => setSidebarVisible(false)}
+              width={sidebarWidth}
+              onResize={setSidebarWidth}
             />
           ) : (
             <button
