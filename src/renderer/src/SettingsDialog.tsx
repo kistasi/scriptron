@@ -48,12 +48,15 @@ export function SettingsDialog({
       value={settings[key]}
       onChange={(event) => onChange({ [key]: Number(event.target.value) })}
     >
-      {sizes.map((size) => (
-        <option key={size} value={size}>
-          {size} {unit}
-          {size === defaultSettings[key] ? ' (default)' : ''}
-        </option>
-      ))}
+      {/* A pinched size is listed among the others. */}
+      {[...new Set([...sizes, settings[key]])]
+        .sort((a, b) => a - b)
+        .map((size) => (
+          <option key={size} value={size}>
+            {size} {unit}
+            {size === defaultSettings[key] ? ' (default)' : ''}
+          </option>
+        ))}
     </select>
   )
 

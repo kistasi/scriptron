@@ -5,7 +5,8 @@ import { EditorView, minimalSetup } from 'codemirror'
 import { autoformat } from './autoformat'
 import { screenplayCompletion } from './completion'
 import { activeEmphasis, emphasisKeys, toggleEmphasis } from './emphasis'
-import { fountainFormatting } from './fountainFormatting'
+import { baseFontSize, fountainFormatting } from './fountainFormatting'
+import { listenForPinch } from './lib/zoom'
 import { insertPageBreak, isCentered, toggleCentered } from './lineFormats'
 import { screenplayKeys } from './screenplayKeys'
 import { screenplaySearch } from './search'
@@ -30,6 +31,8 @@ interface EditorProps {
   onChange: (text: string) => void
   // Called with the cursor's source line (0-based) whenever it may have moved.
   onCursorLine?: (line: number) => void
+  // Called with the new text size when a pinch is over.
+  onZoom?: (fontSize: number) => void
   ref?: React.Ref<EditorHandle>
 }
 
@@ -49,6 +52,7 @@ export function Editor({
   visible,
   onChange,
   onCursorLine,
+  onZoom,
   ref
 }: EditorProps): React.JSX.Element {
   const hostRef = useRef<HTMLDivElement>(null)
@@ -58,12 +62,48 @@ export function Editor({
   // Read when the editor mounts; later changes reconfigure it below.
   const initialFontSize = useRef(fontSize)
   const initialCheckSpelling = useRef(checkSpelling)
-  const callbacks = useRef({ onChange, onCursorLine })
+  const paneRef = useRef<HTMLDivElement>(null)
+  const callbacks = useRef({ onChange, onCursorLine, onZoom })
   const [active, setActive] = useState<Set<ToolbarCommand>>(() => new Set())
 
   useEffect(() => {
-    callbacks.current = { onChange, onCursorLine }
-  }, [onChange, onCursorLine])
+    callbacks.current = { onChange, onCursorLine, onZoom }
+  }, [onChange, onCursorLine, onZoom])
+
+  // The size shown, which runs ahead of fontSize while pinching.
+  const shownFontSize = useRef(fontSize)
+
+  useEffect(
+    () =>
+      listenForPinch(paneRef.current!, {
+        size: () => shownFontSize.current,
+        preview: (size, x, y) => {
+          const view = viewRef.current
+          if (!view) return
+          // The text under the pointer stays there: its offset from the pointer scales too.
+          const ratio = size / shownFontSize.current
+          const position = view.posAtCoords({ x, y }, false)
+          const before = view.coordsAtPos(position)
+          shownFontSize.current = size
+          hostRef.current!.style.setProperty('--scale', String(size / baseFontSize))
+          if (!before) {
+            view.requestMeasure()
+            return
+          }
+          const scroller = view.scrollDOM.getBoundingClientRect()
+          view.dispatch({
+            effects: EditorView.scrollIntoView(position, {
+              x: 'start',
+              y: 'start',
+              xMargin: x - scroller.left - (x - before.left) * ratio,
+              yMargin: y - scroller.top - (y - before.top) * ratio
+            })
+          })
+        },
+        commit: (size) => callbacks.current.onZoom?.(size)
+      }),
+    []
+  )
 
   useImperativeHandle(ref, () => ({
     goToLine: (line) => {
@@ -122,8 +162,12 @@ export function Editor({
   }, [visible])
 
   useEffect(() => {
-    viewRef.current?.dispatch({
-      effects: formatting.current.reconfigure(fountainFormatting(fontSize))
+    shownFontSize.current = fontSize
+    const view = viewRef.current
+    if (!view) return
+    // Keeps the text at the top of the view in place, rather than the scroll offset in pixels.
+    view.dispatch({
+      effects: [formatting.current.reconfigure(fountainFormatting(fontSize)), view.scrollSnapshot()]
     })
   }, [fontSize])
 
@@ -142,9 +186,14 @@ export function Editor({
   }
 
   return (
-    <div className="editor-pane" hidden={!visible}>
+    <div ref={paneRef} className="editor-pane" hidden={!visible}>
       <Toolbar active={active} onCommand={runCommand} />
-      <div ref={hostRef} className="editor" />
+      {/* Pinching sets --scale directly until the new size comes back as fontSize. */}
+      <div
+        ref={hostRef}
+        className="editor"
+        style={{ '--scale': fontSize / baseFontSize } as React.CSSProperties}
+      />
     </div>
   )
 }

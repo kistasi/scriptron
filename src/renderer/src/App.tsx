@@ -173,6 +173,11 @@ function App(): React.JSX.Element {
     return unsubscribe
   }, [])
 
+  // A pinched text size is remembered in Settings.
+  const zoomEditor = useCallback((editorFontSize: number): void => {
+    window.api.updateSettings({ editorFontSize })
+  }, [])
+
   useEffect(() => {
     document.documentElement.style.setProperty('--ui-font-size', `${settings.uiFontSize}px`)
   }, [settings.uiFontSize])
@@ -243,6 +248,7 @@ function App(): React.JSX.Element {
               onCursorLine={(cursorLine) =>
                 setState((state) => updateTab(state, tab.id, { cursorLine }))
               }
+              onZoom={zoomEditor}
             />
           ))}
         </div>

@@ -32,13 +32,22 @@ function validated(values: Record<string, unknown>, base: Settings): Settings {
   return {
     appearance: pick(values.appearance, appearances, base.appearance),
     uiFontSize: pick(values.uiFontSize, uiFontSizes, base.uiFontSize),
-    editorFontSize: pick(values.editorFontSize, editorFontSizes, base.editorFontSize),
+    editorFontSize: editorFontSize(values.editorFontSize, base.editorFontSize),
     checkSpelling:
       typeof values.checkSpelling === 'boolean' ? values.checkSpelling : base.checkSpelling,
     dictionary: Array.isArray(values.dictionary)
       ? dictionaryWords(values.dictionary)
       : base.dictionary
   }
+}
+
+// Pinching sets sizes between those offered, to a tenth of a point.
+function editorFontSize(value: unknown, fallback: number): number {
+  const min = editorFontSizes[0]
+  const max = editorFontSizes[editorFontSizes.length - 1]
+  return typeof value === 'number' && value >= min && value <= max
+    ? Math.round(value * 10) / 10
+    : fallback
 }
 
 // Single words, without duplicates, in alphabetical order.
