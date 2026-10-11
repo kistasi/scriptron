@@ -24,8 +24,15 @@ mac:
     - NSDocumentsFolderUsageDescription: scriptron opens and saves screenplays in your Documents folder.
     - NSDownloadsFolderUsageDescription: scriptron opens and saves screenplays in your Downloads folder.
   notarize: false
+  # Apple Silicon and Intel get separate downloads, half the size of one universal app.
+  target:
+    - target: dmg
+      arch: [arm64, x64]
+    - target: zip
+      arch: [arm64, x64]
+  artifactName: ${name}-${version}-${arch}-mac.${ext}
 dmg:
-  artifactName: ${name}-${version}.${ext}
+  artifactName: ${name}-${version}-${arch}.${ext}
 linux:
   target:
     - AppImage
