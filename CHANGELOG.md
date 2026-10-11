@@ -2,6 +2,15 @@
 
 All notable changes to Scriptron are listed here. Versions follow [semver](https://semver.org).
 
+## [1.2.0] - 2026-10-11
+
+### Added
+
+- Preview the PDF before exporting, from the toolbar or File > Preview PDF, with page thumbnails to jump between pages.
+- Reorder scenes by dragging them in the sidebar, after confirming the move.
+- Resize the sidebar by dragging its edge; double-click the edge to reset it.
+- The About dialog shows the copyright and MIT license.
+
 ## [1.1.1] - 2026-10-11
 
 Version 1.1.0 was never published because its Windows build failed, so this release brings its changes.
