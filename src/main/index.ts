@@ -54,6 +54,8 @@ app.whenReady().then(() => {
     optimizer.watchWindowShortcuts(window)
   })
 
+  app.setAboutPanelOptions({ copyright: 'Copyright © 2026 Marton Tasnadi\nMIT License' })
+
   loadSettings()
   loadRecent()
   registerDocumentHandlers()
