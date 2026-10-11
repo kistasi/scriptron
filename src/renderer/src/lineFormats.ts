@@ -1,6 +1,6 @@
 import { type ChangeSpec, type EditorState, EditorSelection, type Line } from '@codemirror/state'
 import type { Command, EditorView } from '@codemirror/view'
-import { classifyLines } from './lib/fountainLines'
+import { classifiedDoc } from './classifiedDoc'
 
 // The non-blank lines touched by the main selection, or the cursor's line.
 function selectedLines(state: EditorState): Line[] {
@@ -15,7 +15,7 @@ function selectedLines(state: EditorState): Line[] {
 
 // Whether every selected line is centered text (> like this <).
 export function isCentered(state: EditorState): boolean {
-  const types = classifyLines(state.doc.toJSON())
+  const { types } = classifiedDoc(state.doc)
   return selectedLines(state).every((line) => types[line.number - 1] === 'centered')
 }
 
@@ -46,7 +46,7 @@ export const toggleCentered: Command = (view: EditorView): boolean => {
     })
     return true
   } else {
-    const types = classifyLines(state.doc.toJSON())
+    const { types } = classifiedDoc(state.doc)
     changes = lines
       .filter((line) => types[line.number - 1] !== 'centered')
       // Only the ends change, so the cursor keeps its place in the text. A transition's ">"

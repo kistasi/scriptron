@@ -104,7 +104,10 @@ function wrap(styled: StyledText, type: LineType): Span[][] {
 const plainSpan = (text: string): Span[] => [{ text }]
 
 // Title page values by lowercase key. A value may continue on indented lines below its key.
-export function titlePageValues(lines: string[], types: LineType[]): Map<string, string[]> {
+export function titlePageValues(
+  lines: readonly string[],
+  types: readonly LineType[]
+): Map<string, string[]> {
   const values = new Map<string, string[]>()
   let current: string[] | null = null
   for (let i = 0; i < lines.length && types[i] === 'title-page'; i++) {

@@ -1,6 +1,7 @@
 import { type EditorState, type Extension, Facet, type Range, StateField } from '@codemirror/state'
 import { Decoration, type DecorationSet, EditorView, WidgetType } from '@codemirror/view'
-import { classifyLines, inlineRanges, type InlineStyle, type LineType } from './lib/fountainLines'
+import { classifiedDoc } from './classifiedDoc'
+import { inlineRanges, type InlineStyle, type LineType } from './lib/fountainLines'
 import {
   elementIndents,
   page,
@@ -103,8 +104,7 @@ const inlineDecorations: Record<InlineStyle, Decoration> = {
 function buildDecorations(state: EditorState): DecorationSet {
   const { doc } = state
   const scale = state.facet(editorFontSize) / baseFontSize
-  const lines = doc.toJSON()
-  const types = classifyLines(lines)
+  const { lines, types } = classifiedDoc(doc)
   const scenes = sceneNumbers(lines, types)
   const decorations: Range<Decoration>[] = []
 

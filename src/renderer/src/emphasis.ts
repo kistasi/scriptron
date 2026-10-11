@@ -7,7 +7,8 @@ import {
   type SelectionRange
 } from '@codemirror/state'
 import { type Command, type EditorView, keymap } from '@codemirror/view'
-import { classifyLines, inlineRanges, type LineType } from './lib/fountainLines'
+import { classifiedDoc } from './classifiedDoc'
+import { inlineRanges, type LineType } from './lib/fountainLines'
 
 export type Emphasis = 'bold' | 'italic' | 'underline' | 'note'
 
@@ -30,7 +31,7 @@ interface Segment {
 // The selected text on each line of a range; a cursor gives one empty segment.
 function segments(
   state: EditorState,
-  types: LineType[],
+  types: readonly LineType[],
   range: SelectionRange,
   style: Emphasis
 ): Segment[] {
@@ -62,7 +63,7 @@ function segments(
 // The styles applied at the main selection, for showing toolbar buttons as pressed.
 export function activeEmphasis(state: EditorState): Set<Emphasis> {
   const range = state.selection.main
-  const types = classifyLines(state.doc.toJSON())
+  const { types } = classifiedDoc(state.doc)
   const active = new Set<Emphasis>()
   for (const style of Object.keys(delimiters) as Emphasis[]) {
     const found = segments(state, types, range, style)
@@ -77,7 +78,7 @@ export function toggleEmphasis(style: Emphasis): Command {
   const [open, close] = delimiters[style]
   return (view: EditorView): boolean => {
     const { state } = view
-    const types = classifyLines(state.doc.toJSON())
+    const { types } = classifiedDoc(state.doc)
     const transaction = state.changeByRange((range) => {
       const found = segments(state, types, range, style)
       if (found.length === 0) return { range }

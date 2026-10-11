@@ -6,8 +6,8 @@ import {
   startCompletion
 } from '@codemirror/autocomplete'
 import type { EditorView } from '@codemirror/view'
-import { classifyLines } from './lib/fountainLines'
 import { headingParts, headingPrefixes, typedPrefix } from './lib/sceneHeadings'
+import { typedLineAt } from './typedLine'
 
 // A line that may be a scene heading being typed, optionally forced with ".".
 const typedHeading = /^(\s*\.?)(.*)$/
@@ -22,18 +22,12 @@ interface TypedHeading {
 
 // The heading being typed at the cursor: at the end of a line after a blank line.
 function typedHeadingAt(context: CompletionContext): TypedHeading | null {
-  const { state, pos } = context
-  const line = state.doc.lineAt(pos)
-  if (pos !== line.to) return null
-  if (line.number > 1 && state.doc.line(line.number - 1).text.trim() !== '') return null
+  const typed = typedLineAt(context)
+  if (!typed) return null
+  const { line, index, lines, types } = typed
 
   const [, lead, text] = typedHeading.exec(line.text)!
   if (text.trim() === '') return null
-
-  const lines = state.doc.toJSON()
-  const types = classifyLines(lines)
-  const index = line.number - 1
-  if (types[index] === 'boneyard' || types[index] === 'title-page') return null
 
   return {
     from: line.from + lead.length,

@@ -1,6 +1,7 @@
 import { Prec, type Extension } from '@codemirror/state'
 import { type EditorView, keymap } from '@codemirror/view'
-import { classifyLines, isCharacterName } from './lib/fountainLines'
+import { classifiedDoc } from './classifiedDoc'
+import { isCharacterName } from './lib/fountainLines'
 import { uppercaseHeading } from './lib/sceneHeadings'
 
 // Like Beat: Enter at the end of a speech, a scene heading or an action line also adds the blank
@@ -18,7 +19,7 @@ export function endBlock(view: EditorView): boolean {
     return false
   }
 
-  const types = classifyLines(state.doc.toJSON())
+  const { types } = classifiedDoc(state.doc)
   const type = types[line.number - 1]
   if (type !== 'dialogue' && type !== 'scene-heading' && type !== 'action') return false
   // A character name reads as action until its speech is typed, so it gets a single line.

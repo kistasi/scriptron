@@ -188,7 +188,7 @@ function continuedCue(cue: string): string {
   return `${name} (CONT'D)`
 }
 
-export function paginate(lines: string[], types: LineType[]): Pagination {
+export function paginate(lines: readonly string[], types: readonly LineType[]): Pagination {
   const breaks: PageBreak[] = []
   const spacedHeadings = new Set<number>()
   const height = (i: number): number => wrappedLineCount(lines[i], columnWidth(types[i]))
@@ -327,7 +327,10 @@ export function paginate(lines: string[], types: LineType[]): Pagination {
 
 // Scene number for each scene heading line: the explicit "#12#" number if present,
 // otherwise the next number in sequence.
-export function sceneNumbers(lines: string[], types: LineType[]): Map<number, string> {
+export function sceneNumbers(
+  lines: readonly string[],
+  types: readonly LineType[]
+): Map<number, string> {
   const numbers = new Map<number, string>()
   let count = 0
   types.forEach((type, i) => {

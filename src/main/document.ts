@@ -1,4 +1,4 @@
-import { BrowserWindow, dialog, ipcMain } from 'electron'
+import { BrowserWindow, dialog, ipcMain, type MessageBoxOptions } from 'electron'
 import { readFile, writeFile } from 'fs/promises'
 import { basename } from 'path'
 import { channels, type MenuCommand, type OpenedFile, type SavedFile } from '../shared/ipc'
@@ -13,32 +13,39 @@ function targetWindow(): BrowserWindow | undefined {
   return BrowserWindow.getFocusedWindow() ?? BrowserWindow.getAllWindows()[0]
 }
 
+// A warning that unsaved changes will be lost, whose first button discards them.
+const discardOptions = (message: string, detail: string): MessageBoxOptions => ({
+  type: 'warning',
+  message,
+  detail,
+  buttons: ['Discard Changes', 'Cancel'],
+  defaultId: 1,
+  cancelId: 1
+})
+
 // Returns true when the window has no unsaved changes or the user chose to discard them.
+// Synchronous, since it decides whether a closing window may close.
 function confirmDiscard(window: BrowserWindow): boolean {
   if (!dirtyWindows.has(window.webContents.id)) return true
-
-  const choice = dialog.showMessageBoxSync(window, {
-    type: 'warning',
-    message: 'You have unsaved changes.',
-    detail: 'Your changes will be lost if you continue.',
-    buttons: ['Discard Changes', 'Cancel'],
-    defaultId: 1,
-    cancelId: 1
-  })
-  return choice === 0
+  const options = discardOptions(
+    'You have unsaved changes.',
+    'Your changes will be lost if you continue.'
+  )
+  return dialog.showMessageBoxSync(window, options) === 0
 }
 
 // Asks whether to close a tab whose document has unsaved changes; true to close it.
 async function confirmClose(window: BrowserWindow, name: string): Promise<boolean> {
-  const { response } = await dialog.showMessageBox(window, {
-    type: 'warning',
-    message: `“${name}” has unsaved changes.`,
-    detail: 'Your changes will be lost if you close it.',
-    buttons: ['Discard Changes', 'Cancel'],
-    defaultId: 1,
-    cancelId: 1
-  })
+  const options = discardOptions(
+    `“${name}” has unsaved changes.`,
+    'Your changes will be lost if you close it.'
+  )
+  const { response } = await dialog.showMessageBox(window, options)
   return response === 0
+}
+
+function showFileError(title: string, path: string, error: unknown): void {
+  dialog.showErrorBox(title, `${path}\n\n${(error as Error).message}`)
 }
 
 export function sendMenuCommand(command: MenuCommand): void {
@@ -73,7 +80,7 @@ async function sendFile(window: BrowserWindow, path: string, untitled: boolean):
     const file: OpenedFile = { path: untitled ? null : path, name: basename(path), content }
     window.webContents.send(channels.fileOpened, file)
   } catch (error) {
-    dialog.showErrorBox('Could not open file', `${path}\n\n${(error as Error).message}`)
+    showFileError('Could not open file', path, error)
   }
 }
 
@@ -98,7 +105,7 @@ async function saveDocument(
     await writeFile(path, content, 'utf-8')
     return { path, name: basename(path) }
   } catch (error) {
-    dialog.showErrorBox('Could not save file', `${path}\n\n${(error as Error).message}`)
+    showFileError('Could not save file', path, error)
     return null
   }
 }
@@ -121,7 +128,7 @@ async function exportPdf(window: BrowserWindow, name: string): Promise<boolean> 
     await writeFile(result.filePath, pdf)
     return true
   } catch (error) {
-    dialog.showErrorBox('Could not export PDF', `${result.filePath}\n\n${(error as Error).message}`)
+    showFileError('Could not export PDF', result.filePath, error)
     return false
   }
 }

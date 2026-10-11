@@ -1,12 +1,13 @@
 import type { ChangeSpec } from '@codemirror/state'
 import type { Command, EditorView } from '@codemirror/view'
-import { classifyLines, type LineType } from './lib/fountainLines'
+import { classifiedDoc } from './classifiedDoc'
+import type { LineType } from './lib/fountainLines'
 import { uppercaseHeading } from './lib/sceneHeadings'
 
 // The tidied text of a line, or null if it is a blank line to remove. Spaces at the ends are
 // trimmed and runs of spaces inside are collapsed. Boneyard is left alone, title page values keep
 // the indentation that continues them, and a dialogue line of two spaces keeps the speech going.
-function tidyLines(lines: string[], types: LineType[]): (string | null)[] {
+function tidyLines(lines: readonly string[], types: readonly LineType[]): (string | null)[] {
   const tidied = lines.map((line, i): string => {
     const type = types[i]
     if (type === 'boneyard' || (type === 'dialogue' && line === '  ')) return line
@@ -63,8 +64,7 @@ function headingChanges(from: number, text: string): ChangeSpec[] {
 // ends the document with a newline, keeping the cursor in place.
 export const autoformat: Command = (view: EditorView): boolean => {
   const { doc } = view.state
-  const lines = doc.toJSON()
-  const types = classifyLines(lines)
+  const { lines, types } = classifiedDoc(doc)
   const tidied = tidyLines(lines, types)
   const changes: ChangeSpec[] = []
 

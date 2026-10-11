@@ -1,6 +1,6 @@
-// Line-by-line Fountain classification for live formatting in the editor.
-// Unlike fountain.ts this keeps a 1:1 mapping to source lines, so the result
-// can be used to style the text being edited. Follows https://fountain.io/syntax.
+// Line-by-line Fountain classification. It keeps a 1:1 mapping to source lines, so the result
+// can style the text being edited as well as drive pagination and printing.
+// Follows https://fountain.io/syntax.
 
 export type LineType =
   | 'empty'
@@ -25,7 +25,8 @@ function isBlank(line: string | undefined): boolean {
   return line === undefined || line.trim() === ''
 }
 
-function isUppercase(text: string): boolean {
+// Has letters, all of them capitals.
+export function isUppercase(text: string): boolean {
   return /\p{L}/u.test(text) && text === text.toUpperCase()
 }
 
@@ -35,7 +36,7 @@ export function isCharacterName(text: string): boolean {
   return isUppercase(name)
 }
 
-export function classifyLines(lines: string[]): LineType[] {
+export function classifyLines(lines: readonly string[]): LineType[] {
   const types: LineType[] = []
   let i = 0
 

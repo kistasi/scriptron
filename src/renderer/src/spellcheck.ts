@@ -1,7 +1,7 @@
 import { type EditorState, type Extension, type Range, StateField } from '@codemirror/state'
 import { Decoration, type DecorationSet, EditorView } from '@codemirror/view'
 import { characterNames } from './lib/characterNames'
-import { classifyLines } from './lib/fountainLines'
+import { classifiedDoc } from './classifiedDoc'
 import { isChecked, namePattern, uncheckedRanges } from './lib/spellcheck'
 
 // Chromium skips any text inside an element with spellcheck="false".
@@ -11,8 +11,7 @@ const uncheckedText = Decoration.mark({ attributes: unchecked })
 
 function buildDecorations(state: EditorState): DecorationSet {
   const { doc } = state
-  const lines = doc.toJSON()
-  const types = classifyLines(lines)
+  const { lines, types } = classifiedDoc(doc)
   const names = namePattern(characterNames(lines, types))
   const decorations: Range<Decoration>[] = []
   for (let n = 1; n <= doc.lines; n++) {

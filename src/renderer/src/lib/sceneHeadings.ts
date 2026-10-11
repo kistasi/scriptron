@@ -1,5 +1,6 @@
 // Locations and times of day from scene headings, for autocompleting them in the editor.
 
+import { byFrequency } from './byFrequency'
 import { sceneNumber, type LineType } from './fountainLines'
 
 // The prefixes offered while typing the start of a scene heading.
@@ -25,17 +26,11 @@ export function parseHeading(text: string): SceneHeading {
   return { location: body.slice(0, dash).trim(), time: body.slice(dash + 3).trim() || null }
 }
 
-function byFrequency(values: string[]): string[] {
-  const counts = new Map<string, number>()
-  for (const value of values) counts.set(value, (counts.get(value) ?? 0) + 1)
-  return [...counts.keys()].sort((a, b) => counts.get(b)! - counts.get(a)!)
-}
-
 // The locations and times of day of all scene headings, most frequent first, skipping the line
 // being typed, in capitals. Times also include the common ones.
 export function headingParts(
-  lines: string[],
-  types: LineType[],
+  lines: readonly string[],
+  types: readonly LineType[],
   skip?: number
 ): { locations: string[]; times: string[] } {
   const headings = types
