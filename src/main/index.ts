@@ -46,7 +46,8 @@ function createWindow(): void {
 }
 
 app.whenReady().then(() => {
-  electronApp.setAppUserModelId('com.electron')
+  // Matches appId in electron-builder.yml, which Windows needs for taskbar grouping and notifications.
+  electronApp.setAppUserModelId('com.kistasi.scriptron')
 
   app.on('browser-window-created', (_, window) => {
     optimizer.watchWindowShortcuts(window)
