@@ -3,7 +3,9 @@ import {
   channels,
   type MenuCommand,
   type OpenedFile,
+  type RestoredSession,
   type SavedFile,
+  type Session,
   type Settings
 } from '../shared/ipc'
 
@@ -28,6 +30,9 @@ const api = {
   confirmClose: (name: string): Promise<boolean> => ipcRenderer.invoke(channels.confirmClose, name),
   // Prints the window's print view to a PDF. Resolves to false if cancelled or failed.
   exportPdf: (name: string): Promise<boolean> => ipcRenderer.invoke(channels.exportPdf, name),
+  // Reads the files that were open in tabs when the app last ran.
+  restoreSession: (): Promise<RestoredSession> => ipcRenderer.invoke(channels.restoreSession),
+  saveSession: (session: Session): void => ipcRenderer.send(channels.saveSession, session),
   getSettings: (): Promise<Settings> => ipcRenderer.invoke(channels.getSettings),
   // Saved and applied by the main process, which then sends the result to onSettingsChanged.
   updateSettings: (changes: Partial<Settings>): void =>

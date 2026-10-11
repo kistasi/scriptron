@@ -1,11 +1,12 @@
 // @vitest-environment jsdom
-import { act, cleanup, fireEvent, render, screen } from '@testing-library/react'
+import { act, cleanup, createEvent, fireEvent, render, screen } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import type { Api } from '../../preload'
 import {
   defaultSettings,
   type MenuCommand,
   type OpenedFile,
+  type RestoredSession,
   type SavedFile,
   type Settings
 } from '../../shared/ipc'
@@ -74,7 +75,17 @@ const selectedTab = (): string | null => screen.getByRole('tab', { selected: tru
 const sceneTitles = (): string[] =>
   screen.queryAllByRole('listitem').map((item) => item.textContent ?? '')
 
-beforeEach(() => {
+// The tabs restored from the last launch, set before a test renders the app again.
+let restoredSession: RestoredSession
+
+const renderApp = (): Promise<void> =>
+  act(async () => {
+    cleanup()
+    render(<App />)
+  })
+
+beforeEach(async () => {
+  restoredSession = { files: [], activePath: null }
   editors = new Map()
   mounts = 0
   goToLine.mockClear()
@@ -89,10 +100,12 @@ beforeEach(() => {
     exportPdf: vi.fn(),
     getSettings: vi.fn(() => Promise.resolve(defaultSettings)),
     updateSettings: vi.fn(),
-    onSettingsChanged: vi.fn((callback) => ((settingsChanged = callback), () => {}))
+    onSettingsChanged: vi.fn((callback) => ((settingsChanged = callback), () => {})),
+    restoreSession: vi.fn(() => Promise.resolve(restoredSession)),
+    saveSession: vi.fn()
   }
   window.api = api as unknown as Api
-  render(<App />)
+  await renderApp()
 })
 
 afterEach(cleanup)
@@ -292,6 +305,75 @@ describe('App', () => {
       // Closing the last tab leaves a new untitled one.
       expect(tabNames()).toEqual(['Untitled'])
       expect(isDirty()).toBe(false)
+    })
+
+    it('reopens the files that were open at the last launch, showing the one that was shown', async () => {
+      restoredSession = {
+        files: [
+          { ...bigFish, content: 'EXT. RIVER' },
+          { ...other, content: 'INT. HOUSE' }
+        ],
+        activePath: bigFish.path
+      }
+      await renderApp()
+
+      expect(tabNames()).toEqual(['Big Fish', 'Other'])
+      expect(selectedTab()).toBe('Big Fish')
+      expect(editor().initialText).toBe('EXT. RIVER')
+    })
+
+    it('remembers the open files, in order, and the shown one', () => {
+      expect(api.saveSession).toHaveBeenLastCalledWith({ paths: [], activePath: null })
+
+      open({ ...bigFish, content: '' })
+      open({ ...other, content: '' })
+      command('new')
+      expect(api.saveSession).toHaveBeenLastCalledWith({
+        paths: [bigFish.path, other.path],
+        activePath: null
+      })
+
+      command('next-tab')
+      expect(api.saveSession).toHaveBeenLastCalledWith({
+        paths: [bigFish.path, other.path],
+        activePath: bigFish.path
+      })
+    })
+
+    it('does not remember anything until the last launch’s tabs are reopened', async () => {
+      api.restoreSession.mockReturnValueOnce(new Promise(() => {}))
+      api.saveSession.mockClear()
+      await renderApp()
+      open({ ...bigFish, content: '' })
+      expect(api.saveSession).not.toHaveBeenCalled()
+    })
+
+    it('reorders tabs by dragging, once the pointer crosses the middle of another', () => {
+      open({ ...bigFish, content: '' })
+      open({ ...other, content: '' })
+      command('new')
+      // Each tab is 100px wide.
+      const tabs = document.querySelectorAll<HTMLElement>('.tab')
+      tabs.forEach((tab, i) => {
+        tab.getBoundingClientRect = () => ({ left: i * 100, width: 100 }) as DOMRect
+      })
+      const dataTransfer = { effectAllowed: '', dropEffect: '' }
+      // jsdom has no DragEvent, so the pointer position is set by hand.
+      const dragOver = (tab: HTMLElement, clientX: number): void => {
+        const event = createEvent.dragOver(tab, { dataTransfer })
+        Object.defineProperty(event, 'clientX', { value: clientX })
+        fireEvent(tab, event)
+      }
+
+      fireEvent.dragStart(tabs[0], { dataTransfer })
+      dragOver(tabs[1], 140)
+      expect(tabNames()).toEqual(['Big Fish', 'Other', 'Untitled'])
+
+      dragOver(tabs[2], 260)
+      expect(tabNames()).toEqual(['Other', 'Untitled', 'Big Fish'])
+      // The dragged tab is shown.
+      expect(selectedTab()).toBe('Big Fish')
+      fireEvent.dragEnd(tabs[0], { dataTransfer })
     })
 
     it('marks tabs with unsaved changes', () => {

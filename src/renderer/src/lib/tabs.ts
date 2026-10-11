@@ -1,5 +1,7 @@
 // The open documents, one per tab, and which one is shown.
 
+import type { Session } from '../../../shared/ipc'
+
 export interface Tab {
   // Identifies the tab, and keys its editor.
   id: number
@@ -104,4 +106,33 @@ export function cycleTab(state: Tabs, offset: number): Tabs {
   const index = tabs.findIndex((tab) => tab.id === state.activeId)
   const next = (((index + offset) % tabs.length) + tabs.length) % tabs.length
   return { tabs, activeId: tabs[next].id }
+}
+
+// Moves the tab to index, shifting the tabs between.
+export function moveTab(state: Tabs, id: number, index: number): Tabs {
+  const tab = state.tabs.find((tab) => tab.id === id)
+  if (!tab) return state
+  const tabs = state.tabs.filter((t) => t !== tab)
+  tabs.splice(Math.max(0, Math.min(index, tabs.length)), 0, tab)
+  return { ...state, tabs }
+}
+
+// Opens the documents that were open when the app last ran, showing the one that was shown.
+export function restoreTabs(
+  state: Tabs,
+  documents: NewDocument[],
+  activePath: string | null
+): Tabs {
+  if (documents.length === 0) return state
+  const restored = documents.reduce(openTab, state)
+  const active = restored.tabs.find((tab) => tab.path !== null && tab.path === activePath)
+  return active ? { ...restored, activeId: active.id } : restored
+}
+
+// What to remember about the tabs for the next launch: the files, in order, and the shown one.
+export function sessionOf(state: Tabs): Session {
+  return {
+    paths: state.tabs.flatMap((tab) => (tab.path === null ? [] : [tab.path])),
+    activePath: activeTab(state).path
+  }
 }

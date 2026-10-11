@@ -1,4 +1,4 @@
-import React from 'react'
+import React, { useRef } from 'react'
 
 export interface TabInfo {
   id: number
@@ -15,6 +15,8 @@ interface TabBarProps {
   onSelect: (id: number) => void
   onClose: (id: number) => void
   onNew: () => void
+  // Moves the tab to index, while it is dragged.
+  onMove: (id: number, index: number) => void
 }
 
 // One tab per open document, above the sidebar and the editor.
@@ -23,16 +25,43 @@ export function TabBar({
   activeId,
   onSelect,
   onClose,
-  onNew
+  onNew,
+  onMove
 }: TabBarProps): React.JSX.Element {
+  // The tab being dragged.
+  const dragged = useRef<number | null>(null)
+
+  // Moves the dragged tab into the place of the one under the pointer once the pointer crosses
+  // that tab's middle, so that tabs of different widths don't swap back and forth.
+  const dragOver = (event: React.DragEvent<HTMLElement>, index: number): void => {
+    const id = dragged.current
+    if (id === null) return
+    event.preventDefault()
+    event.dataTransfer.dropEffect = 'move'
+    const from = tabs.findIndex((tab) => tab.id === id)
+    if (from === index) return
+    const { left, width } = event.currentTarget.getBoundingClientRect()
+    const pastMiddle = event.clientX > left + width / 2
+    if (index > from ? pastMiddle : !pastMiddle) onMove(id, index)
+  }
+
   return (
     <div className="tab-bar">
       <div className="tabs" role="tablist" aria-label="Documents">
-        {tabs.map(({ id, label, title, dirty }) => (
+        {tabs.map(({ id, label, title, dirty }, index) => (
           <div
             key={id}
             className={`tab${id === activeId ? ' tab-active' : ''}${dirty ? ' tab-dirty' : ''}`}
             title={title}
+            draggable
+            onDragStart={(event) => {
+              dragged.current = id
+              event.dataTransfer.effectAllowed = 'move'
+              onSelect(id)
+            }}
+            onDragOver={(event) => dragOver(event, index)}
+            onDrop={(event) => event.preventDefault()}
+            onDragEnd={() => (dragged.current = null)}
             // Middle-click closes, as in browsers.
             onAuxClick={(event) => event.button === 1 && onClose(id)}
           >

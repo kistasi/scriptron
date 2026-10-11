@@ -1,5 +1,15 @@
 import { describe, expect, it } from 'vitest'
-import { closeTab, cycleTab, initialTabs, openTab, updateTab, type Tabs } from './tabs'
+import {
+  closeTab,
+  cycleTab,
+  initialTabs,
+  moveTab,
+  openTab,
+  restoreTabs,
+  sessionOf,
+  updateTab,
+  type Tabs
+} from './tabs'
 
 const names = (state: Tabs): string[] => state.tabs.map((tab) => tab.name)
 const activeName = (state: Tabs): string | undefined =>
@@ -81,5 +91,27 @@ describe('tabs', () => {
   it('ignores updates to a closed tab', () => {
     const state = initialTabs(0)
     expect(updateTab(state, 5, { text: 'x' })).toBe(state)
+  })
+
+  it('moves a tab, shifting the others', () => {
+    let state = initialTabs(0)
+    for (const [id, name] of ['A', 'B', 'C'].entries()) state = openTab(state, file(id, name))
+    expect(names(moveTab(state, 0, 2))).toEqual(['B', 'C', 'A'])
+    expect(names(moveTab(state, 2, 0))).toEqual(['C', 'A', 'B'])
+  })
+
+  it('restores files in place of the blank tab, showing the one that was shown', () => {
+    const state = restoreTabs(initialTabs(0), [file(1, 'A'), file(2, 'B')], '/scripts/A')
+    expect(names(state)).toEqual(['A', 'B'])
+    expect(activeName(state)).toBe('A')
+  })
+
+  it('remembers the files, not the untitled documents', () => {
+    let state = openTab(initialTabs(0), file(1, 'A'))
+    state = openTab(openTab(state, untitled(2)), file(3, 'B'))
+    expect(sessionOf(state)).toEqual({
+      paths: ['/scripts/A', '/scripts/B'],
+      activePath: '/scripts/B'
+    })
   })
 })

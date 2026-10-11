@@ -4,6 +4,7 @@ import { electronApp, optimizer, is } from '@electron-toolkit/utils'
 import icon from '../../resources/icon.png?asset'
 import { guardUnsavedChanges, registerDocumentHandlers } from './document'
 import { buildMenu } from './menu'
+import { registerSessionHandlers } from './session'
 import {
   loadSettings,
   onSettingsChanged,
@@ -53,6 +54,7 @@ app.whenReady().then(() => {
 
   loadSettings()
   registerDocumentHandlers()
+  registerSessionHandlers()
   registerSettingsHandlers()
   setUpSpellchecker()
   buildMenu()

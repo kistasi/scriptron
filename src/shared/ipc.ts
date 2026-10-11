@@ -12,6 +12,19 @@ export interface SavedFile {
   name: string
 }
 
+// The open tabs, remembered so they can be reopened when the app relaunches.
+export interface Session {
+  // The files open in tabs, in tab order; untitled documents aren't remembered.
+  paths: string[]
+  activePath: string | null
+}
+
+export interface RestoredSession {
+  // The remembered files that could still be read, in tab order.
+  files: OpenedFile[]
+  activePath: string | null
+}
+
 export type MenuCommand =
   | 'new'
   | 'save'
@@ -66,6 +79,10 @@ export const channels = {
   // renderer → main (invoke) with the name of a document with unsaved changes; asks whether to
   // close it anyway, resolves to true to close it
   confirmClose: 'document:confirm-close',
+  // renderer → main (invoke), resolves to the RestoredSession
+  restoreSession: 'session:restore',
+  // renderer → main, with the Session whenever it changes
+  saveSession: 'session:save',
   // renderer → main (invoke), resolves to the Settings
   getSettings: 'settings:get',
   // renderer → main, with a Partial<Settings> to change

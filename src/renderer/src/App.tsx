@@ -13,7 +13,10 @@ import {
   cycleTab,
   initialTabs,
   isDirty,
+  moveTab,
   openTab,
+  restoreTabs,
+  sessionOf,
   updateTab,
   type Tabs
 } from './lib/tabs'
@@ -48,6 +51,8 @@ function App(): React.JSX.Element {
   const [sidebarVisible, setSidebarVisible] = useState(loadSidebarVisible)
   const [settings, setSettings] = useState<Settings>(defaultSettings)
   const [settingsOpen, setSettingsOpen] = useState(false)
+  // Whether the tabs from the last launch have been reopened; until then, they aren't saved.
+  const [restored, setRestored] = useState(false)
   // The editor of each tab, by tab id.
   const editors = useRef(new Map<number, EditorHandle>())
   const { tabs, activeId } = state
@@ -138,6 +143,25 @@ function App(): React.JSX.Element {
   }, [newTab, close])
 
   useEffect(() => {
+    window.api.restoreSession().then(({ files, activePath }) => {
+      const documents = files.map(({ path, name, content }) => ({
+        id: nextTabId++,
+        path,
+        name,
+        text: content
+      }))
+      setState((state) => restoreTabs(state, documents, activePath))
+      setRestored(true)
+    })
+  }, [])
+
+  // Only changes when a file is opened, closed, saved, moved or shown, not on every keystroke.
+  const session = JSON.stringify(sessionOf(state))
+  useEffect(() => {
+    if (restored) window.api.saveSession(JSON.parse(session))
+  }, [restored, session])
+
+  useEffect(() => {
     let changed = false
     const unsubscribe = window.api.onSettingsChanged((settings) => {
       changed = true
@@ -183,6 +207,7 @@ function App(): React.JSX.Element {
           onSelect={(id) => setState((state) => ({ ...state, activeId: id }))}
           onClose={close}
           onNew={newTab}
+          onMove={(id, index) => setState((state) => moveTab(state, id, index))}
         />
         <div className="workspace">
           {sidebarVisible ? (
