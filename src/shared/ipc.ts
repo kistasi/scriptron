@@ -25,6 +25,14 @@ export interface RestoredSession {
   activePath: string | null
 }
 
+// A file in File ▸ Open Recent and on the welcome screen.
+export interface RecentDocument {
+  path: string
+  name: string
+  // The folder it's in, with the home folder shortened to "~".
+  folder: string
+}
+
 export type MenuCommand =
   | 'new'
   | 'save'
@@ -83,6 +91,18 @@ export const channels = {
   restoreSession: 'session:restore',
   // renderer → main, with the Session whenever it changes
   saveSession: 'session:save',
+  // renderer → main, to ask which files to open with the Open dialog
+  openDialog: 'file:open-dialog',
+  // renderer → main, with the path of a file to open, e.g. a recent one
+  openPath: 'file:open-path',
+  // renderer → main (invoke), resolves to the titles of the bundled sample screenplays
+  getSamples: 'samples:get',
+  // renderer → main, with a sample's title; opens it as an untitled copy
+  openSample: 'samples:open',
+  // renderer → main (invoke), resolves to the RecentDocument[], the most recent first
+  getRecent: 'recent:get',
+  // main → renderer, with the RecentDocument[] whenever they change
+  recentChanged: 'recent:changed',
   // renderer → main (invoke), resolves to the Settings
   getSettings: 'settings:get',
   // renderer → main, with a Partial<Settings> to change

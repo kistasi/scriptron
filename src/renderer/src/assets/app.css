@@ -148,6 +148,26 @@ body {
   background: var(--sidebar);
 }
 
+.tab-home {
+  display: flex;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  width: 2.8em;
+  padding: 0;
+  border: none;
+  border-right: 1px solid var(--sidebar-border);
+  background: none;
+  color: var(--sidebar-muted);
+  font: inherit;
+  cursor: default;
+}
+
+.tab-home:hover {
+  background: var(--sidebar-hover);
+  color: var(--sidebar-ink);
+}
+
 .tab-label {
   flex: 1;
   min-width: 0;
@@ -195,6 +215,7 @@ body {
   color: var(--sidebar-ink);
 }
 
+.tab-home:focus-visible,
 .tab-label:focus-visible,
 .tab-close:focus-visible,
 .tab-new:focus-visible {
@@ -558,6 +579,126 @@ body {
 .settings-button {
   min-width: 6em;
   cursor: pointer;
+}
+
+/* Shown from the home button, at launch when there is nothing to reopen, and once the last tab is
+   closed. */
+.welcome {
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  width: 28em;
+  max-width: calc(100vw - 32px);
+  margin: 0 auto;
+  padding: 12vh 0 32px;
+  color: var(--sidebar-ink);
+  font:
+    var(--ui-font-size) / 1.35 system-ui,
+    -apple-system,
+    sans-serif;
+}
+
+.welcome-title {
+  margin: 0 0 1em;
+  font:
+    bold 2.2em 'Courier Prime',
+    monospace;
+  text-align: center;
+}
+
+.welcome-actions {
+  display: flex;
+  gap: 0.75em;
+}
+
+.welcome-action {
+  flex: 1;
+  padding: 0.6em 1em;
+  border: 1px solid var(--sidebar-border);
+  border-radius: 8px;
+  background: var(--sidebar-field);
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
+}
+
+.welcome-action:hover {
+  background: var(--sidebar-hover);
+}
+
+.welcome-recent {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  margin-top: 2em;
+}
+
+.welcome-heading {
+  margin: 0 0 0.5em;
+  color: var(--sidebar-muted);
+  font-size: 0.85em;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.welcome-samples {
+  flex: none;
+  margin-top: 2em;
+}
+
+.welcome-empty {
+  margin: 0;
+  color: var(--sidebar-muted);
+}
+
+.welcome-list {
+  overflow-y: auto;
+  margin: 0 -0.75em;
+  padding: 0;
+  list-style: none;
+}
+
+.welcome-document {
+  display: flex;
+  align-items: baseline;
+  gap: 0.75em;
+  width: 100%;
+  padding: 0.45em 0.75em;
+  border: 0;
+  border-radius: 8px;
+  background: none;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.welcome-document:hover {
+  background: var(--sidebar-hover);
+}
+
+.welcome-action:focus-visible,
+.welcome-document:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: -2px;
+}
+
+.welcome-document-name {
+  flex: none;
+  max-width: 60%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.welcome-document-folder {
+  min-width: 0;
+  overflow: hidden;
+  color: var(--sidebar-muted);
+  font-size: 0.9em;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 /* Exported PDFs are printed from .print, which is only shown when printing. */

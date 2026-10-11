@@ -1,8 +1,23 @@
 import { Menu, MenuItemConstructorOptions, app } from 'electron'
 import { appearances } from '../shared/ipc'
-import { openDocument, openSample, sendMenuCommand } from './document'
+import { openDocument, openRecent, openSample, sendMenuCommand } from './document'
+import { clearRecent, getRecent } from './recent'
 import { samples } from './samples'
 import { getSettings, updateSettings } from './settings'
+
+// The recent files, by name, with their folder where names repeat, then Clear Menu.
+function recentItems(): MenuItemConstructorOptions[] {
+  const recent = getRecent()
+  const repeated = (name: string): boolean => recent.filter((r) => r.name === name).length > 1
+  return [
+    ...recent.map(({ path, name, folder }) => ({
+      label: repeated(name) ? `${name} — ${folder}` : name,
+      click: () => openRecent(path)
+    })),
+    ...(recent.length > 0 ? [{ type: 'separator' } as MenuItemConstructorOptions] : []),
+    { label: 'Clear Menu', enabled: recent.length > 0, click: () => clearRecent() }
+  ]
+}
 
 export function buildMenu(): void {
   const isMac = process.platform === 'darwin'
@@ -39,6 +54,7 @@ export function buildMenu(): void {
       submenu: [
         { label: 'New', accelerator: 'CmdOrCtrl+N', click: () => sendMenuCommand('new') },
         { label: 'Open…', accelerator: 'CmdOrCtrl+O', click: () => openDocument() },
+        { label: 'Open Recent', submenu: recentItems() },
         {
           label: 'Open Sample',
           submenu: samples.map(({ title, path }) => ({

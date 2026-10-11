@@ -38,10 +38,13 @@ const electron = vi.hoisted(() => {
   }
 
   const handlers = new Map<string, Listener>()
+  const paths = { userData: '', home: '' }
   return {
     FakeWindow,
     handlers,
+    paths,
     module: {
+      app: { getPath: (name: 'userData' | 'home') => paths[name] },
       BrowserWindow: FakeWindow,
       ipcMain: {
         handle: (channel: string, listener: Listener) => handlers.set(channel, listener),
@@ -60,7 +63,11 @@ const electron = vi.hoisted(() => {
 
 vi.mock('electron', () => electron.module)
 
-const { FakeWindow, handlers } = electron
+// The bundled samples, pointed at files a test writes.
+const samples = vi.hoisted(() => [] as { title: string; path: string }[])
+vi.mock('./samples', () => ({ samples }))
+
+const { FakeWindow, handlers, paths } = electron
 const { dialog } = electron.module
 type Document = typeof import('./document')
 
@@ -86,6 +93,8 @@ beforeEach(async () => {
   FakeWindow.focused = window
   document.guardUnsavedChanges(window as never)
   dir = await mkdtemp(join(tmpdir(), 'scriptron-test-'))
+  paths.userData = dir
+  paths.home = dir
 })
 
 afterEach(async () => {
@@ -215,7 +224,8 @@ describe('opening', () => {
 
     await document.openDocument()
     expect(dialog.showMessageBoxSync).not.toHaveBeenCalled()
-    expect(window.webContents.send.mock.calls).toEqual([
+    const opened = window.webContents.send.mock.calls.filter(([c]) => c === channels.fileOpened)
+    expect(opened).toEqual([
       [channels.fileOpened, { path: paths[0], name: 'One.fountain', content: 'one' }],
       [channels.fileOpened, { path: paths[1], name: 'Two.fountain', content: 'two' }]
     ])
@@ -245,6 +255,67 @@ describe('opening a sample', () => {
       name: 'Big-Fish.fountain',
       content: 'EXT. RIVER - DAY'
     })
+  })
+})
+
+describe('recent documents', () => {
+  const recentPaths = (): string[] => {
+    const calls = window.webContents.send.mock.calls.filter(([c]) => c === channels.recentChanged)
+    return (calls.at(-1)?.[1] ?? []).map(({ path }: { path: string }) => path)
+  }
+
+  it('remembers opened and saved files, the most recent first', async () => {
+    const one = join(dir, 'One.fountain')
+    const two = join(dir, 'Two.fountain')
+    await writeFile(one, 'one')
+    dialog.showOpenDialog.mockResolvedValue({ canceled: false, filePaths: [one] })
+
+    await document.openDocument()
+    expect(recentPaths()).toEqual([one])
+
+    await fromRenderer(channels.saveFile, 'two', two, 'Two.fountain')
+    expect(recentPaths()).toEqual([two, one])
+
+    await document.openRecent(one)
+    expect(recentPaths()).toEqual([one, two])
+  })
+
+  it('does not remember samples', async () => {
+    const path = join(dir, 'Big-Fish.fountain')
+    await writeFile(path, 'EXT. RIVER - DAY')
+    await document.openSample(path)
+    expect(recentPaths()).toEqual([])
+  })
+
+  it('opens a recent file from the renderer, forgetting it once it is gone', async () => {
+    const path = join(dir, 'Big Fish.fountain')
+    await writeFile(path, 'EXT. RIVER - DAY')
+    await document.openRecent(path)
+    await rm(path)
+
+    fromRenderer(channels.openPath, path)
+    await vi.waitFor(() => expect(dialog.showErrorBox).toHaveBeenCalled())
+    expect(recentPaths()).toEqual([])
+  })
+})
+
+describe('opening a sample from the renderer', () => {
+  it('lists the samples by title, and opens one by its title', async () => {
+    const path = join(dir, 'Big-Fish.fountain')
+    await writeFile(path, 'EXT. RIVER - DAY')
+    samples.splice(0, samples.length, { title: 'Big Fish', path })
+
+    expect(await fromRenderer(channels.getSamples)).toEqual(['Big Fish'])
+    fromRenderer(channels.openSample, 'Unknown')
+    fromRenderer(channels.openSample, 'Big Fish')
+    await vi.waitFor(() =>
+      expect(window.webContents.send).toHaveBeenCalledWith(channels.fileOpened, {
+        path: null,
+        name: 'Big-Fish.fountain',
+        content: 'EXT. RIVER - DAY'
+      })
+    )
+    expect(window.webContents.send).toHaveBeenCalledTimes(1)
   })
 })
 

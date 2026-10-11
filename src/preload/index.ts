@@ -3,6 +3,7 @@ import {
   channels,
   type MenuCommand,
   type OpenedFile,
+  type RecentDocument,
   type RestoredSession,
   type SavedFile,
   type Session,
@@ -25,6 +26,18 @@ const api = {
   // or failed.
   saveFile: (content: string, path: string | null, name: string): Promise<SavedFile | null> =>
     ipcRenderer.invoke(channels.saveFile, content, path, name),
+  // Shows the Open dialog; the chosen files arrive through onFileOpened.
+  openDialog: (): void => ipcRenderer.send(channels.openDialog),
+  // Opens the file, e.g. a recent one; it arrives through onFileOpened.
+  openPath: (path: string): void => ipcRenderer.send(channels.openPath, path),
+  // The titles of the bundled sample screenplays.
+  getSamples: (): Promise<string[]> => ipcRenderer.invoke(channels.getSamples),
+  // Opens the sample as an untitled copy; it arrives through onFileOpened.
+  openSample: (title: string): void => ipcRenderer.send(channels.openSample, title),
+  // The recently opened files, the most recent first.
+  getRecent: (): Promise<RecentDocument[]> => ipcRenderer.invoke(channels.getRecent),
+  onRecentChanged: (callback: (recent: RecentDocument[]) => void): (() => void) =>
+    subscribe(channels.recentChanged, callback),
   setDirty: (dirty: boolean): void => ipcRenderer.send(channels.setDirty, dirty),
   // Asks whether to close the named document and lose its unsaved changes.
   confirmClose: (name: string): Promise<boolean> => ipcRenderer.invoke(channels.confirmClose, name),

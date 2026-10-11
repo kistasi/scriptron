@@ -1,11 +1,20 @@
 // @vitest-environment jsdom
-import { act, cleanup, createEvent, fireEvent, render, screen } from '@testing-library/react'
+import {
+  act,
+  cleanup,
+  createEvent,
+  fireEvent,
+  render,
+  screen,
+  within
+} from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import type { Api } from '../../preload'
 import {
   defaultSettings,
   type MenuCommand,
   type OpenedFile,
+  type RecentDocument,
   type RestoredSession,
   type SavedFile,
   type Settings
@@ -55,6 +64,7 @@ Element.prototype.scrollIntoView = () => {}
 let fileOpened: (file: OpenedFile) => void
 let menuCommand: (command: MenuCommand) => void
 let settingsChanged: (settings: Settings) => void
+let recentChanged: (recent: RecentDocument[]) => void
 let api: { [K in keyof Api]: ReturnType<typeof vi.fn> }
 
 // A save that the test resolves when it chooses, like a save dialog left open.
@@ -79,6 +89,7 @@ const sceneTitles = (): string[] =>
 
 // The tabs restored from the last launch, set before a test renders the app again.
 let restoredSession: RestoredSession
+let recent: RecentDocument[]
 
 const renderApp = (): Promise<void> =>
   act(async () => {
@@ -88,6 +99,7 @@ const renderApp = (): Promise<void> =>
 
 beforeEach(async () => {
   restoredSession = { files: [], activePath: null }
+  recent = []
   editors = new Map()
   mounts = 0
   goToLine.mockClear()
@@ -104,13 +116,130 @@ beforeEach(async () => {
     updateSettings: vi.fn(),
     onSettingsChanged: vi.fn((callback) => ((settingsChanged = callback), () => {})),
     restoreSession: vi.fn(() => Promise.resolve(restoredSession)),
-    saveSession: vi.fn()
+    saveSession: vi.fn(),
+    openDialog: vi.fn(),
+    openPath: vi.fn(),
+    getRecent: vi.fn(() => Promise.resolve(recent)),
+    getSamples: vi.fn(() => Promise.resolve(['Big Fish'])),
+    openSample: vi.fn(),
+    onRecentChanged: vi.fn((callback) => ((recentChanged = callback), () => {}))
   }
   window.api = api as unknown as Api
   await renderApp()
+  // Past the welcome screen, onto the blank untitled document.
+  command('new')
 })
 
 afterEach(cleanup)
+
+describe('welcome screen', () => {
+  const welcomeShown = (): boolean => screen.queryByRole('heading', { name: 'Scriptron' }) !== null
+  const bigFishRecent = { ...bigFish, folder: '~/scripts' }
+
+  beforeEach(async () => {
+    recent = [bigFishRecent, { path: '/a/Other.fountain', name: 'Other.fountain', folder: '/a' }]
+    await renderApp()
+  })
+
+  it('shows on launch with nothing to reopen, listing the recent documents', () => {
+    expect(welcomeShown()).toBe(true)
+    expect(document.title).toBe('Scriptron')
+    expect(tabNames()).toEqual([])
+    expect(sceneTitles()).toEqual(['Big Fish~/scripts', 'Other/a', 'Big Fish'])
+  })
+
+  it('opens a sample', () => {
+    const samples = screen.getByRole('region', { name: 'Samples' })
+    fireEvent.click(within(samples).getByRole('button', { name: 'Big Fish' }))
+    expect(api.openSample).toHaveBeenCalledWith('Big Fish')
+  })
+
+  it('follows changes to the recent documents', () => {
+    act(() => recentChanged([]))
+    expect(screen.getByText('Scripts you open will be listed here.')).toBeTruthy()
+  })
+
+  it('opens a recent document, or asks which to open', () => {
+    const recentList = screen.getByRole('region', { name: 'Recent' })
+    fireEvent.click(within(recentList).getByRole('button', { name: /Big Fish/ }))
+    expect(api.openPath).toHaveBeenCalledWith(bigFish.path)
+
+    fireEvent.click(screen.getByRole('button', { name: 'Open…' }))
+    expect(api.openDialog).toHaveBeenCalled()
+  })
+
+  it('shows an opened document in its only tab', () => {
+    open({ ...bigFish, content: 'EXT. RIVER' })
+    expect(welcomeShown()).toBe(false)
+    expect(tabNames()).toEqual(['Big Fish'])
+  })
+
+  it('starts a new script from its button or the New command', async () => {
+    fireEvent.click(screen.getByRole('button', { name: 'New Script' }))
+    expect(tabNames()).toEqual(['Untitled'])
+    expect(editor().initialText).toBe(NEW_SCRIPT)
+
+    await renderApp()
+    command('new')
+    expect(tabNames()).toEqual(['Untitled'])
+  })
+
+  it('ignores commands for a document', () => {
+    command('save')
+    command('export-pdf')
+    command('close-tab')
+    expect(api.saveFile).not.toHaveBeenCalled()
+    expect(api.exportPdf).not.toHaveBeenCalled()
+    expect(welcomeShown()).toBe(true)
+  })
+
+  it('shows again once the last tab is closed', async () => {
+    open({ ...bigFish, content: 'EXT. RIVER' })
+    await act(async () => command('close-tab'))
+    expect(welcomeShown()).toBe(true)
+
+    command('new')
+    expect(tabNames()).toEqual(['Untitled'])
+  })
+
+  it('opens from the home button, keeping the tabs open, until a tab is chosen', () => {
+    const home = (): HTMLElement => screen.getByRole('button', { name: 'Home' })
+    expect(home().getAttribute('aria-pressed')).toBe('true')
+    open({ ...bigFish, content: 'EXT. RIVER' })
+    type('EXT. RIVER - DAY')
+    expect(home().getAttribute('aria-pressed')).toBe('false')
+    const mounted = mounts
+
+    fireEvent.click(home())
+    expect(welcomeShown()).toBe(true)
+    expect(document.title).toBe('Scriptron')
+    expect(tabNames()).toEqual(['Big Fish'])
+    expect(screen.getByRole('tab', { selected: false }).textContent).toBe('Big Fish')
+    // The document is still open, with its unsaved changes.
+    expect(isDirty()).toBe(true)
+
+    fireEvent.click(screen.getByRole('tab', { name: 'Big Fish' }))
+    expect(welcomeShown()).toBe(false)
+    expect(document.title).toBe('• Big Fish.fountain — Scriptron')
+    // The same editor, with its undo history.
+    expect(mounts).toBe(mounted)
+  })
+
+  it('opens a new script in a tab of its own, beside those already open', () => {
+    open({ ...bigFish, content: 'EXT. RIVER' })
+    fireEvent.click(screen.getByRole('button', { name: 'Home' }))
+    fireEvent.click(screen.getByRole('button', { name: 'New Script' }))
+    expect(tabNames()).toEqual(['Big Fish', 'Untitled'])
+    expect(selectedTab()).toBe('Untitled')
+  })
+
+  it('is not shown when the last launch’s tabs are reopened', async () => {
+    restoredSession = { files: [{ ...bigFish, content: '' }], activePath: bigFish.path }
+    await renderApp()
+    expect(welcomeShown()).toBe(false)
+    expect(tabNames()).toEqual(['Big Fish'])
+  })
+})
 
 describe('App', () => {
   it('starts with a clean untitled document', () => {
@@ -307,8 +436,9 @@ describe('App', () => {
 
       api.confirmClose.mockResolvedValueOnce(true)
       await act(async () => menuCommand('close-tab'))
-      // Closing the last tab leaves a new untitled one.
-      expect(tabNames()).toEqual(['Untitled'])
+      // Closing the last tab shows the welcome screen.
+      expect(tabNames()).toEqual([])
+      expect(screen.getByRole('heading', { name: 'Scriptron' })).toBeTruthy()
       expect(isDirty()).toBe(false)
     })
 

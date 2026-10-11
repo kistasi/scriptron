@@ -19,7 +19,8 @@ export interface Tab {
 
 export interface Tabs {
   tabs: Tab[]
-  activeId: number
+  // null while the welcome screen is shown instead of a tab.
+  activeId: number | null
 }
 
 export interface NewDocument {
@@ -46,8 +47,8 @@ export const NEW_SCRIPT_CURSOR = 'Title: '.length
 
 export const isDirty = (tab: Tab): boolean => tab.text !== tab.savedText
 
-export const activeTab = ({ tabs, activeId }: Tabs): Tab =>
-  tabs.find((tab) => tab.id === activeId) ?? tabs[0]
+export const activeTab = ({ tabs, activeId }: Tabs): Tab | null =>
+  tabs.find((tab) => tab.id === activeId) ?? null
 
 // A new untitled document that hasn't been touched, which an opened file replaces.
 const isBlank = (tab: Tab): boolean => tab.path === null && tab.text === NEW_SCRIPT && !isDirty(tab)
@@ -72,10 +73,11 @@ function createTab(tabs: Tab[], { id, path, name, text }: NewDocument): Tab {
   }
 }
 
-export const initialTabs = (id: number): Tabs => {
-  const tab = createTab([], { id, path: null, name: null, text: NEW_SCRIPT })
-  return { tabs: [tab], activeId: tab.id }
-}
+// The app starts on the welcome screen, with no documents open.
+export const noTabs: Tabs = { tabs: [], activeId: null }
+
+// Shows the welcome screen, keeping the tabs open.
+export const showWelcome = (state: Tabs): Tabs => ({ ...state, activeId: null })
 
 // Opens the document in a new tab and shows it. A file that is already open is shown instead,
 // and a blank untitled tab is replaced by an opened file.
@@ -85,7 +87,7 @@ export function openTab(state: Tabs, document: NewDocument): Tabs {
   if (open) return { tabs, activeId: open.id }
 
   const current = activeTab(state)
-  if (document.name !== null && isBlank(current)) {
+  if (document.name !== null && current && isBlank(current)) {
     const others = tabs.filter((tab) => tab !== current)
     const tab = createTab(others, document)
     return { tabs: tabs.map((t) => (t === current ? tab : t)), activeId: tab.id }
@@ -95,13 +97,13 @@ export function openTab(state: Tabs, document: NewDocument): Tabs {
   return { tabs: [...tabs, tab], activeId: tab.id }
 }
 
-// Closes the tab, showing its neighbour if it was shown. Closing the last tab leaves a new
-// untitled one, with id newId.
-export function closeTab(state: Tabs, id: number, newId: number): Tabs {
+// Closes the tab, showing its neighbour if it was shown. Closing the last tab shows the welcome
+// screen.
+export function closeTab(state: Tabs, id: number): Tabs {
   const index = state.tabs.findIndex((tab) => tab.id === id)
   if (index === -1) return state
   const tabs = state.tabs.filter((tab) => tab.id !== id)
-  if (tabs.length === 0) return initialTabs(newId)
+  if (tabs.length === 0) return noTabs
   if (state.activeId !== id) return { tabs, activeId: state.activeId }
   return { tabs, activeId: tabs[Math.min(index, tabs.length - 1)].id }
 }
@@ -114,10 +116,13 @@ export function updateTab(state: Tabs, id: number, changes: Partial<Omit<Tab, 'i
   }
 }
 
-// Shows the tab offset tabs to the right (left when negative), wrapping around.
+// Shows the tab offset tabs to the right (left when negative), wrapping around. From the welcome
+// screen, that's the first or the last tab.
 export function cycleTab(state: Tabs, offset: number): Tabs {
   const { tabs } = state
+  if (tabs.length === 0) return state
   const index = tabs.findIndex((tab) => tab.id === state.activeId)
+  if (index === -1) return { tabs, activeId: tabs[offset > 0 ? 0 : tabs.length - 1].id }
   const next = (((index + offset) % tabs.length) + tabs.length) % tabs.length
   return { tabs, activeId: tabs[next].id }
 }
@@ -147,6 +152,6 @@ export function restoreTabs(
 export function sessionOf(state: Tabs): Session {
   return {
     paths: state.tabs.flatMap((tab) => (tab.path === null ? [] : [tab.path])),
-    activePath: activeTab(state).path
+    activePath: activeTab(state)?.path ?? null
   }
 }

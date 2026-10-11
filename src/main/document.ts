@@ -2,6 +2,8 @@ import { BrowserWindow, dialog, ipcMain, type MessageBoxOptions } from 'electron
 import { readFile, writeFile } from 'fs/promises'
 import { basename } from 'path'
 import { channels, type MenuCommand, type OpenedFile, type SavedFile } from '../shared/ipc'
+import { addRecent, removeRecent } from './recent'
+import { samples } from './samples'
 
 const fountainFilters = [{ name: 'Fountain', extensions: ['fountain'] }]
 const pdfFilters = [{ name: 'PDF', extensions: ['pdf'] }]
@@ -67,6 +69,12 @@ export async function openDocument(): Promise<void> {
   for (const path of filePaths) await sendFile(window, path, false)
 }
 
+// Opens a recently opened file, forgetting it if it can no longer be read.
+export async function openRecent(path: string): Promise<void> {
+  const window = targetWindow()
+  if (window) await sendFile(window, path, false)
+}
+
 // Opens a bundled sample as an untitled copy, so saving asks for a location.
 export async function openSample(path: string): Promise<void> {
   const window = targetWindow()
@@ -74,12 +82,15 @@ export async function openSample(path: string): Promise<void> {
 }
 
 // Reads the file and sends it to the renderer, detached from its path when untitled.
+// A file opened with its path is remembered as recent.
 async function sendFile(window: BrowserWindow, path: string, untitled: boolean): Promise<void> {
   try {
     const content = await readFile(path, 'utf-8')
     const file: OpenedFile = { path: untitled ? null : path, name: basename(path), content }
     window.webContents.send(channels.fileOpened, file)
+    if (!untitled) addRecent(path)
   } catch (error) {
+    if (!untitled) removeRecent(path)
     showFileError('Could not open file', path, error)
   }
 }
@@ -103,6 +114,7 @@ async function saveDocument(
 
   try {
     await writeFile(path, content, 'utf-8')
+    addRecent(path)
     return { path, name: basename(path) }
   } catch (error) {
     showFileError('Could not save file', path, error)
@@ -142,6 +154,14 @@ export function registerDocumentHandlers(): void {
   ipcMain.handle(channels.exportPdf, (event, name: string) => {
     const window = BrowserWindow.fromWebContents(event.sender)
     return window ? exportPdf(window, name) : false
+  })
+
+  ipcMain.on(channels.openDialog, () => void openDocument())
+  ipcMain.on(channels.openPath, (_event, path: string) => void openRecent(path))
+  ipcMain.handle(channels.getSamples, () => samples.map(({ title }) => title))
+  ipcMain.on(channels.openSample, (_event, title: string) => {
+    const sample = samples.find((sample) => sample.title === title)
+    if (sample) void openSample(sample.path)
   })
 
   ipcMain.handle(channels.confirmClose, (event, name: string) => {

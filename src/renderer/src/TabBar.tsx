@@ -11,7 +11,10 @@ export interface TabInfo {
 
 interface TabBarProps {
   tabs: TabInfo[]
-  activeId: number
+  // null while the welcome screen is shown.
+  activeId: number | null
+  // Shows the welcome screen.
+  onHome: () => void
   onSelect: (id: number) => void
   onClose: (id: number) => void
   onNew: () => void
@@ -23,6 +26,7 @@ interface TabBarProps {
 export function TabBar({
   tabs,
   activeId,
+  onHome,
   onSelect,
   onClose,
   onNew,
@@ -47,6 +51,27 @@ export function TabBar({
 
   return (
     <div className="tab-bar">
+      {/* Stays at the start, outside the scrolling tabs. */}
+      <button
+        type="button"
+        className={`tab-home${activeId === null ? ' tab-active' : ''}`}
+        title="Home"
+        aria-label="Home"
+        aria-pressed={activeId === null}
+        onMouseDown={(event) => event.preventDefault()}
+        onClick={onHome}
+      >
+        <svg viewBox="0 0 16 16" width="1.15em" height="1.15em" aria-hidden>
+          <path
+            d="M2.5 7.5 8 3l5.5 4.5M4 6.5V13h3V9.5h2V13h3V6.5"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="1.3"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+          />
+        </svg>
+      </button>
       <div className="tabs" role="tablist" aria-label="Documents">
         {tabs.map(({ id, label, title, dirty }, index) => (
           <div

@@ -1,6 +1,6 @@
 import React, { useCallback, useDeferredValue, useEffect, useMemo, useRef, useState } from 'react'
 import { flushSync } from 'react-dom'
-import { defaultSettings, type Settings } from '../../shared/ipc'
+import { defaultSettings, type RecentDocument, type Settings } from '../../shared/ipc'
 import { Editor, type EditorHandle } from './Editor'
 import { PrintView } from './PrintView'
 import { SettingsDialog } from './SettingsDialog'
@@ -11,18 +11,21 @@ import {
   activeTab,
   closeTab,
   cycleTab,
-  initialTabs,
   NEW_SCRIPT,
   NEW_SCRIPT_CURSOR,
+  noTabs,
   isDirty,
   moveTab,
   openTab,
   restoreTabs,
   sessionOf,
+  showWelcome,
   updateTab,
+  type Tab,
   type Tabs
 } from './lib/tabs'
 import { TabBar } from './TabBar'
+import { Welcome } from './Welcome'
 
 // Tab ids; each tab keys its own editor.
 let nextTabId = 0
@@ -47,7 +50,7 @@ function loadSidebarVisible(): boolean {
 }
 
 function App(): React.JSX.Element {
-  const [state, setState] = useState<Tabs>(() => initialTabs(nextTabId++))
+  const [state, setState] = useState<Tabs>(noTabs)
   // Set while exporting a PDF: the screenplay laid out for printing.
   const [printed, setPrinted] = useState<PrintedScreenplay | null>(null)
   const [sidebarVisible, setSidebarVisible] = useState(loadSidebarVisible)
@@ -55,17 +58,20 @@ function App(): React.JSX.Element {
   const [settingsOpen, setSettingsOpen] = useState(false)
   // Whether the tabs from the last launch have been reopened; until then, they aren't saved.
   const [restored, setRestored] = useState(false)
+  const [recent, setRecent] = useState<RecentDocument[]>([])
+  const [samples, setSamples] = useState<string[]>([])
   // The editor of each tab, by tab id.
   const editors = useRef(new Map<number, EditorHandle>())
   const { tabs, activeId } = state
+  // null on the welcome screen.
   const doc = activeTab(state)
-  const dirty = isDirty(doc)
+  const dirty = doc !== null && isDirty(doc)
   const anyDirty = tabs.some(isDirty)
 
   // Deferred so that typing isn't slowed down by re-outlining long screenplays.
-  const outlinedText = useDeferredValue(doc.text)
+  const outlinedText = useDeferredValue(doc?.text ?? '')
   const scenes = useMemo(() => outlineScenes(outlinedText.split('\n')), [outlinedText])
-  const currentScene = sceneAt(scenes, doc.cursorLine)
+  const currentScene = sceneAt(scenes, doc?.cursorLine ?? 0)
 
   // Menu commands arrive outside React's render cycle and need the latest values.
   const latest = useRef(state)
@@ -78,18 +84,16 @@ function App(): React.JSX.Element {
     setState((state) => openTab(state, { id, path: null, name: null, text: NEW_SCRIPT }))
   }, [])
 
-  // Asks first if the document has unsaved changes.
+  // Asks first if the document has unsaved changes. Closing the last tab shows the welcome screen.
   const close = useCallback(async (id: number): Promise<void> => {
     const tab = latest.current.tabs.find((tab) => tab.id === id)
     if (!tab) return
     if (isDirty(tab) && !(await window.api.confirmClose(tab.name))) return
-    const newId = nextTabId++
-    setState((state) => closeTab(state, id, newId))
+    setState((state) => closeTab(state, id))
   }, [])
 
   useEffect(() => {
-    const save = async (saveAs: boolean): Promise<void> => {
-      const tab = activeTab(latest.current)
+    const save = async (tab: Tab, saveAs: boolean): Promise<void> => {
       const name = `${baseName(tab.name)}.fountain`
       const saved = await window.api.saveFile(tab.text, saveAs ? null : tab.path, name)
       if (!saved) return
@@ -97,8 +101,7 @@ function App(): React.JSX.Element {
       setState((state) => updateTab(state, tab.id, { ...saved, savedText: tab.text }))
     }
 
-    const exportPdf = async (): Promise<void> => {
-      const { name, text } = activeTab(latest.current)
+    const exportPdf = async ({ name, text }: Tab): Promise<void> => {
       const screenplay = layoutScreenplay(text)
       flushSync(() => setPrinted(screenplay))
       // The window title becomes the PDF's title.
@@ -118,15 +121,18 @@ function App(): React.JSX.Element {
       setState((state) => openTab(state, { id, path, name, text: content }))
     })
     const unsubscribeMenu = window.api.onMenuCommand((command) => {
+      const tab = activeTab(latest.current)
       if (command === 'new') newTab()
-      else if (command === 'close-tab') close(latest.current.activeId)
       else if (command === 'next-tab') setState((state) => cycleTab(state, 1))
       else if (command === 'previous-tab') setState((state) => cycleTab(state, -1))
-      else if (command === 'export-pdf') exportPdf()
-      else if (command === 'find') editors.current.get(latest.current.activeId)?.openSearch()
       else if (command === 'toggle-sidebar') setSidebarVisible((visible) => !visible)
       else if (command === 'open-settings') setSettingsOpen(true)
-      else save(command === 'save-as')
+      // The rest act on the shown document, which the welcome screen doesn't have.
+      else if (!tab) return
+      else if (command === 'close-tab') close(tab.id)
+      else if (command === 'export-pdf') exportPdf(tab)
+      else if (command === 'find') editors.current.get(tab.id)?.openSearch()
+      else save(tab, command === 'save-as')
     })
 
     // Ctrl+Tab and Ctrl+Shift+Tab switch tabs, as in browsers.
@@ -175,6 +181,22 @@ function App(): React.JSX.Element {
     return unsubscribe
   }, [])
 
+  useEffect(() => {
+    let changed = false
+    const unsubscribe = window.api.onRecentChanged((recent) => {
+      changed = true
+      setRecent(recent)
+    })
+    window.api.getRecent().then((recent) => {
+      if (!changed) setRecent(recent)
+    })
+    return unsubscribe
+  }, [])
+
+  useEffect(() => {
+    window.api.getSamples().then(setSamples)
+  }, [])
+
   // A pinched text size is remembered in Settings.
   const zoomEditor = useCallback((editorFontSize: number): void => {
     window.api.updateSettings({ editorFontSize })
@@ -196,9 +218,21 @@ function App(): React.JSX.Element {
     window.api.setDirty(anyDirty)
   }, [anyDirty])
 
+  const docName = doc?.name ?? null
   useEffect(() => {
-    document.title = `${dirty ? '• ' : ''}${doc.name} — Scriptron`
-  }, [dirty, doc.name])
+    document.title = docName === null ? 'Scriptron' : `${dirty ? '• ' : ''}${docName} — Scriptron`
+  }, [dirty, docName])
+
+  const settingsDialog = settingsOpen && (
+    <SettingsDialog
+      settings={settings}
+      onChange={window.api.updateSettings}
+      onClose={() => setSettingsOpen(false)}
+    />
+  )
+
+  // Until the last launch's tabs are reopened, it isn't known whether to welcome.
+  if (!restored) return <div className="app" />
 
   return (
     <>
@@ -211,17 +245,27 @@ function App(): React.JSX.Element {
             dirty: isDirty(tab)
           }))}
           activeId={activeId}
+          onHome={() => setState(showWelcome)}
           onSelect={(id) => setState((state) => ({ ...state, activeId: id }))}
           onClose={close}
           onNew={newTab}
           onMove={(id, index) => setState((state) => moveTab(state, id, index))}
         />
         <div className="workspace">
-          {sidebarVisible ? (
+          {!doc ? (
+            <Welcome
+              recent={recent}
+              samples={samples}
+              onNew={newTab}
+              onOpen={window.api.openDialog}
+              onOpenRecent={window.api.openPath}
+              onOpenSample={window.api.openSample}
+            />
+          ) : sidebarVisible ? (
             <Sidebar
               scenes={scenes}
               current={currentScene}
-              onSelect={(scene) => editors.current.get(activeId)?.goToLine(scene.line)}
+              onSelect={(scene) => editors.current.get(doc.id)?.goToLine(scene.line)}
               onCollapse={() => setSidebarVisible(false)}
             />
           ) : (
@@ -243,7 +287,7 @@ function App(): React.JSX.Element {
                 return () => void editors.current.delete(tab.id)
               }}
               initialText={tab.initialText}
-              initialCursor={tab.path === null ? NEW_SCRIPT_CURSOR : 0}
+              initialCursor={tab.initialText === NEW_SCRIPT ? NEW_SCRIPT_CURSOR : 0}
               fontSize={settings.editorFontSize}
               checkSpelling={settings.checkSpelling}
               visible={tab.id === activeId}
@@ -256,13 +300,7 @@ function App(): React.JSX.Element {
           ))}
         </div>
       </div>
-      {settingsOpen && (
-        <SettingsDialog
-          settings={settings}
-          onChange={window.api.updateSettings}
-          onClose={() => setSettingsOpen(false)}
-        />
-      )}
+      {settingsDialog}
       {printed && <PrintView screenplay={printed} />}
     </>
   )

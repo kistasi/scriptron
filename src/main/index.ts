@@ -4,6 +4,7 @@ import { electronApp, optimizer, is } from '@electron-toolkit/utils'
 import icon from '../../resources/icon.png?asset'
 import { guardUnsavedChanges, registerDocumentHandlers } from './document'
 import { buildMenu } from './menu'
+import { loadRecent, onRecentChanged, registerRecentHandlers } from './recent'
 import { registerSessionHandlers } from './session'
 import {
   loadSettings,
@@ -54,13 +55,17 @@ app.whenReady().then(() => {
   })
 
   loadSettings()
+  loadRecent()
   registerDocumentHandlers()
+  registerRecentHandlers()
   registerSessionHandlers()
   registerSettingsHandlers()
   setUpSpellchecker()
   buildMenu()
   // Keeps the menu's Appearance choice in step with the Settings dialog.
   onSettingsChanged(buildMenu)
+  // Keeps File ▸ Open Recent up to date.
+  onRecentChanged(buildMenu)
   createWindow()
 
   app.on('activate', function () {
