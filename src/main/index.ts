@@ -50,6 +50,9 @@ app.whenReady().then(() => {
   // Matches appId in electron-builder.yml, which Windows needs for taskbar grouping and notifications.
   electronApp.setAppUserModelId('com.kistasi.scriptron')
 
+  // Packaged builds take the Dock icon from build/icon.icns; `yarn dev` would show Electron's.
+  if (is.dev) app.dock?.setIcon(icon)
+
   app.on('browser-window-created', (_, window) => {
     optimizer.watchWindowShortcuts(window)
   })
