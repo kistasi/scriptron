@@ -2,6 +2,12 @@
 
 All notable changes to Scriptron are listed here. Versions follow [semver](https://semver.org).
 
+## [1.3.0] - 2026-10-12
+
+### Changed
+
+- A new app icon: a white S on a green hexagon.
+
 ## [1.2.0] - 2026-10-11
 
 ### Added
